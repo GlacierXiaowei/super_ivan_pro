@@ -109,6 +109,10 @@ class Rule:
 
 @dataclass(slots=True)
 class RuntimeConfig:
+    watcher_backend: str = "replay"
+    watcher_url: str = "http://127.0.0.1:5678"
+    poll_interval_ms: int = 300
+    history_limit: int = 200
     sender_backend: str = "dry_run"
     dry_run: bool = True
     inter_message_delay_ms: int = 180
@@ -118,6 +122,10 @@ class RuntimeConfig:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RuntimeConfig":
         return cls(
+            watcher_backend=str(payload.get("watcher_backend") or "replay"),
+            watcher_url=str(payload.get("watcher_url") or "http://127.0.0.1:5678"),
+            poll_interval_ms=int(payload.get("poll_interval_ms") or 300),
+            history_limit=int(payload.get("history_limit") or 200),
             sender_backend=str(payload.get("sender_backend") or "dry_run"),
             dry_run=bool(payload.get("dry_run", True)),
             inter_message_delay_ms=int(payload.get("inter_message_delay_ms") or 180),

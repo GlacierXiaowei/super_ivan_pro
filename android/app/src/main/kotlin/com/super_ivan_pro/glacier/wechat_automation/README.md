@@ -14,6 +14,7 @@ The first implementation intentionally keeps the live integrations thin:
 - serial reply dispatching
 - dry-run and `wx4py` sender backends
 - replay-based watcher probe for local validation
+- `wechat-decrypt` `/api/history` polling watcher
 
 Live watcher integration with `wechat-decrypt` is the next step after the local
 pipeline is validated end to end.
@@ -67,6 +68,15 @@ Probe watcher normalization only:
 python scripts/watcher_probe.py --events config/events.sample.jsonl
 ```
 
+Run against a live `wechat-decrypt` Web UI instance:
+
+```powershell
+python scripts/run_bot.py `
+  --runtime config/runtime.local.json `
+  --rules config/rules.local.json `
+  --live
+```
+
 Probe sender backend:
 
 ```powershell
@@ -83,3 +93,5 @@ python scripts/sender_probe.py `
 - The `wx4py` backend is optional and requires `wx4py` to be installed locally.
 - The current watcher is replay-based on purpose. It makes the core logic
   testable before wiring in a live event source.
+- The live watcher expects `wechat-decrypt` to be running locally and serving
+  `/api/history` on `http://127.0.0.1:5678`.

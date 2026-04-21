@@ -14,14 +14,15 @@ from core.config_loader import load_rules, load_runtime_config
 from core.dispatcher import SendDispatcher
 from core.logger import configure_logger
 from core.sender_adapter import create_sender
-from core.watcher_adapter import JsonlReplayWatcher
+from core.watcher_adapter import JsonlReplayWatcher, WechatDecryptHistoryWatcher
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the WeChat automation bot in replay mode.")
     parser.add_argument("--runtime", required=True, help="Path to runtime config JSON/YAML.")
     parser.add_argument("--rules", required=True, help="Path to rules config JSON/YAML.")
-    parser.add_argument("--events", required=True, help="Path to replay JSONL events.")
+    parser.add_argument("--events", help="Path to replay JSONL events.")
+    parser.add_argument("--live", action="store_true", help="Use the live wechat-decrypt history watcher.")
     return parser.parse_args()
 
 
@@ -35,7 +36,12 @@ def main() -> int:
     sender = create_sender(runtime, logger)
     dispatcher = SendDispatcher(sender, runtime, logger)
     bot = WeChatAutomationBot(rules, dispatcher, logger)
-    watcher = JsonlReplayWatcher(args.events)
+    if args.live:
+        watcher = WechatDecryptHistoryWatcher(runtime)
+    else:
+        if not args.events:
+            raise ValueError("--events is required unless --live is used.")
+        watcher = JsonlReplayWatcher(args.events)
 
     for event in watcher.iter_events():
         bot.process(event)
