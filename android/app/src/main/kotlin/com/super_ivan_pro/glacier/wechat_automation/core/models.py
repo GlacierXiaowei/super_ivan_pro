@@ -11,6 +11,12 @@ class MatchMode(str, Enum):
     REGEX = "regex"
 
 
+class ChatScope(str, Enum):
+    ANY = "any"
+    GROUP = "group"
+    PRIVATE = "private"
+
+
 class MessageType(str, Enum):
     TEXT = "text"
     EMOJI = "emoji"
@@ -86,6 +92,7 @@ class Rule:
     enabled: bool
     talker: str
     sender: str
+    chat_scope: ChatScope
     message_type: MessageType
     match_mode: MatchMode
     pattern: str
@@ -99,6 +106,7 @@ class Rule:
             enabled=bool(payload.get("enabled", True)),
             talker=str(payload.get("talker") or ""),
             sender=str(payload.get("sender") or ""),
+            chat_scope=ChatScope(str(payload.get("chat_scope") or "any").lower()),
             message_type=MessageType.from_raw(payload.get("type", "unknown")),
             match_mode=MatchMode(str(payload.get("match_mode", "exact")).lower()),
             pattern=str(payload.get("pattern") or ""),

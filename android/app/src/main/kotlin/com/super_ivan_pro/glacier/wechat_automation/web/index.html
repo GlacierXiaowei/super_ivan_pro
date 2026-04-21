@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeChat Automation Console</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #162033;
+      }
+
+      header {
+        padding: 20px 24px 12px;
+      }
+
+      header h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      header p {
+        margin: 0;
+        color: #5c6b83;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 16px;
+        padding: 0 24px 24px;
+      }
+
+      section {
+        background: #ffffff;
+        border: 1px solid #d9e1ee;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 20px rgba(22, 32, 51, 0.06);
+      }
+
+      .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .section-title h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        background: #1f7aff;
+        color: white;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #eef3fb;
+        color: #23406c;
+      }
+
+      #status {
+        font-size: 13px;
+        color: #5c6b83;
+      }
+
+      #events-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: calc(100vh - 180px);
+        overflow: auto;
+      }
+
+      .event-card {
+        border: 1px solid #d9e1ee;
+        border-radius: 12px;
+        padding: 12px;
+        background: #fbfcff;
+      }
+
+      .event-card header {
+        padding: 0;
+        margin-bottom: 8px;
+      }
+
+      .event-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: #5c6b83;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: #edf4ff;
+        color: #1859ba;
+        padding: 4px 8px;
+      }
+
+      .event-content {
+        white-space: pre-wrap;
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      form {
+        display: grid;
+        gap: 12px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 13px;
+        color: #4a5870;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid #c9d5e8;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font: inherit;
+        box-sizing: border-box;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #6a7890;
+      }
+
+      @media (max-width: 960px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        #events-list {
+          max-height: none;
+        }
+
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>WeChat Automation Console</h1>
+      <p>看最近事件，点选监听对象，保存本地规则。当前页面不负责真实发送。</p>
+    </header>
+
+    <main>
+      <section>
+        <div class="section-title">
+          <h2>最近事件</h2>
+          <div>
+            <button id="refresh-events" class="secondary" type="button">刷新事件</button>
+          </div>
+        </div>
+        <div id="status">正在加载事件...</div>
+        <div id="events-list"></div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>规则编辑</h2>
+        </div>
+        <form id="rule-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="rule-id">规则 ID</label>
+              <input id="rule-id" name="id" value="web_console_rule" />
+            </div>
+            <div class="field">
+              <label for="rule-enabled">启用</label>
+              <select id="rule-enabled" name="enabled">
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rule-talker">监听对象</label>
+              <input id="rule-talker" name="talker" />
+            </div>
+            <div class="field">
+              <label for="rule-sender">指定发送者</label>
+              <input id="rule-sender" name="sender" />
+            </div>
+            <div class="field">
+              <label for="rule-chat-scope">会话范围</label>
+              <select id="rule-chat-scope" name="chat_scope">
+                <option value="any">any</option>
+                <option value="group">group</option>
+                <option value="private">private</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rule-type">消息类型</label>
+              <select id="rule-type" name="type">
+                <option value="text">text</option>
+                <option value="emoji">emoji</option>
+                <option value="image">image</option>
+                <option value="voice">voice</option>
+                <option value="video">video</option>
+                <option value="link">link</option>
+                <option value="unknown">unknown</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rule-match-mode">匹配方式</label>
+              <select id="rule-match-mode" name="match_mode">
+                <option value="exact">exact</option>
+                <option value="contains">contains</option>
+                <option value="regex">regex</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rule-cooldown">冷却毫秒</label>
+              <input id="rule-cooldown" name="cooldown_ms" type="number" value="800" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="rule-pattern">触发文本</label>
+            <input id="rule-pattern" name="pattern" />
+          </div>
+
+          <div class="field">
+            <label for="rule-replies">回复列表（每行一条）</label>
+            <textarea id="rule-replies" name="replies"></textarea>
+          </div>
+
+          <div class="actions">
+            <button id="save-rule" type="submit">保存到本地规则</button>
+            <button id="reload-rule" class="secondary" type="button">重新读取规则</button>
+          </div>
+          <div class="note" id="save-status">尚未保存。</div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/web/app.js"></script>
+  </body>
+</html>

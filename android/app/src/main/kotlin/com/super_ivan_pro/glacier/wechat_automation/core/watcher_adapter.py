@@ -58,21 +58,43 @@ class WechatDecryptHistoryWatcher:
             time.sleep(self._poll_interval_sec)
 
     def _fetch_events(self) -> list[dict]:
-        params = urllib.parse.urlencode(
+        payload = self._fetch_history(
             {
                 "since": str(self._since_timestamp),
                 "limit": str(self._history_limit),
             }
         )
-        url = f"{self._base_url}/api/history?{params}"
-        with urllib.request.urlopen(url, timeout=5) as response:
-            payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, list):
             return []
         if payload:
             latest_ts = max(int(item.get("timestamp", 0) or 0) for item in payload)
             self._since_timestamp = max(self._since_timestamp, latest_ts)
         return [item for item in payload if isinstance(item, dict)]
+
+    def fetch_recent_events(self, limit: int = 50, chat: str = "") -> list[MessageEvent]:
+        params = {
+            "limit": str(max(limit, 1)),
+        }
+        if chat:
+            params["chat"] = chat
+        payload = self._fetch_history(params)
+        if not isinstance(payload, list):
+            return []
+        return self.normalize_payloads([item for item in payload if isinstance(item, dict)])
+
+    def normalize_payloads(self, payloads: list[dict]) -> list[MessageEvent]:
+        events: list[MessageEvent] = []
+        for payload in payloads:
+            event = self._normalize_payload(payload)
+            if event:
+                events.append(event)
+        return events
+
+    def _fetch_history(self, params: dict[str, str]) -> object:
+        query = urllib.parse.urlencode(params)
+        url = f"{self._base_url}/api/history?{query}"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
 
     def _normalize_payload(self, payload: dict) -> MessageEvent | None:
         timestamp = int(payload.get("timestamp", 0) or 0)

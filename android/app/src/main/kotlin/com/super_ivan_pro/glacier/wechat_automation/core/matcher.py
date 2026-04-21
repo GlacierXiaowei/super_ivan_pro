@@ -2,13 +2,23 @@ from __future__ import annotations
 
 import re
 
-from .models import MatchMode, MatchResult, MessageEvent, MessageType, Rule
+from .models import ChatScope, MatchMode, MatchResult, MessageEvent, MessageType, Rule
 
 
 def _matches_message_type(message: MessageEvent, rule: Rule) -> bool:
     if rule.message_type == MessageType.UNKNOWN:
         return True
     return message.message_type == rule.message_type
+
+
+def _matches_chat_scope(message: MessageEvent, rule: Rule) -> bool:
+    if rule.chat_scope == ChatScope.ANY:
+        return True
+    if rule.chat_scope == ChatScope.GROUP:
+        return message.is_chat_room
+    if rule.chat_scope == ChatScope.PRIVATE:
+        return not message.is_chat_room
+    return False
 
 
 def match_rule(message: MessageEvent, rule: Rule) -> MatchResult:
@@ -18,6 +28,8 @@ def match_rule(message: MessageEvent, rule: Rule) -> MatchResult:
         return MatchResult(False, "talker_mismatch")
     if rule.sender and rule.sender not in {message.sender, message.display_sender}:
         return MatchResult(False, "sender_mismatch")
+    if not _matches_chat_scope(message, rule):
+        return MatchResult(False, "chat_scope_mismatch")
     if not _matches_message_type(message, rule):
         return MatchResult(False, "type_mismatch")
 

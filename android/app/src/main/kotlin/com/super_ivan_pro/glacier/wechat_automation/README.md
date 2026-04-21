@@ -15,9 +15,11 @@ The first implementation intentionally keeps the live integrations thin:
 - dry-run and `wx4py` sender backends
 - replay-based watcher probe for local validation
 - `wechat-decrypt` `/api/history` polling watcher
+- local web console for rule editing and recent event inspection
 
-Live watcher integration with `wechat-decrypt` is the next step after the local
-pipeline is validated end to end.
+The live watcher is now validated. The current operator-facing next step is a
+local web console for testing different listener targets without hand-editing
+the JSON files.
 
 ## Layout
 
@@ -41,7 +43,9 @@ wechat_automation/
     run_bot.py
     sender_probe.py
     watcher_probe.py
+    web_console.py
   logs/
+  web/
 ```
 
 ## Supported message flow
@@ -87,6 +91,29 @@ python scripts/sender_probe.py `
   --group
 ```
 
+Run the local web console:
+
+```powershell
+python scripts/web_console.py `
+  --runtime config/runtime.local.json `
+  --rules config/rules.local.json `
+  --host 127.0.0.1 `
+  --port 8090
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8090
+```
+
+What the console does:
+
+- shows recent normalized live events
+- lets the operator click one event to prefill a rule
+- lets the operator save the rule back to `config/rules.local.json`
+- does not send real messages
+
 ## Notes
 
 - Default mode is dry-run. It will not send real messages.
@@ -95,3 +122,5 @@ python scripts/sender_probe.py `
   testable before wiring in a live event source.
 - The live watcher expects `wechat-decrypt` to be running locally and serving
   `/api/history` on `http://127.0.0.1:5678`.
+- The web console is safe to use while the user works normally because it does
+  not control the WeChat desktop window.

@@ -36,7 +36,8 @@ This is intentionally not integrated into Flutter yet.
 4. Verified live dry-run against a real local `wechat-decrypt` process and a
    real `START` message in `文件传输助手`.
 5. Fixed live talker normalization for `filehelper -> 文件传输助手`.
-6. Saved plan and progress notes under `glacier/discussion_progress` and
+6. Built a local web console for recent-event inspection and rule editing.
+7. Saved plan and progress notes under `glacier/discussion_progress` and
    `glacier/superpower/plans`.
 
 ## Existing commits
@@ -116,20 +117,39 @@ Bot log result:
 - `dry_run_send payload=TEST`
 - `dry_run_send payload=第二条`
 
+Web console verification:
+
+- local server started on `http://127.0.0.1:8090`
+- `GET /`, `GET /api/rules`, and `GET /api/events` all returned `200`
+- browser page rendered both:
+  - recent live events
+  - current local rule
+- clicking an event in the browser correctly filled:
+  - talker
+  - sender
+  - chat scope
+  - type
+  - trigger pattern
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
 - before any future WeChat send attempt, explicitly ask the user first
 - terminal-side work, log inspection, config edits, tests, and commits can
   continue without asking
+- the local web console is allowed because it does not manipulate the WeChat
+  desktop window
 
 ## Next execution order
 
-1. Keep the real sender stage separate from the live watcher stage.
-2. Install and validate `wx4py` on this machine.
-3. Add a safe operator-controlled real-send test flow.
-4. Ask the user before each real WeChat send attempt.
-5. Switch `runtime.local.json` from dry-run to `wx4py` only for the real-send
+1. Use the new web console to select and save different listener targets during
+   testing.
+2. Keep the real sender stage separate from the live watcher and web console
+   stages.
+3. Install and validate `wx4py` on this machine.
+4. Add a safe operator-controlled real-send test flow.
+5. Ask the user before each real WeChat send attempt.
+6. Switch `runtime.local.json` from dry-run to `wx4py` only for the real-send
    stage.
 
 ## Commit boundary rule
