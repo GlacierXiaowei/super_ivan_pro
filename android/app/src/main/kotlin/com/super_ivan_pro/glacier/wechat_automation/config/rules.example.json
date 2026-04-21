@@ -1,0 +1,16 @@
+[
+  {
+    "id": "demo_exact_text",
+    "enabled": true,
+    "talker": "Test Group",
+    "sender": "",
+    "type": "text",
+    "match_mode": "exact",
+    "pattern": "START",
+    "cooldown_ms": 800,
+    "replies": [
+      "ACK",
+      "SECOND MESSAGE"
+    ]
+  }
+]

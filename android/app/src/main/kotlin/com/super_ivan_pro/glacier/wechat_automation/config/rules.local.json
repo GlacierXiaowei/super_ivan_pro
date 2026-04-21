@@ -1,0 +1,16 @@
+[
+  {
+    "id": "filehelper_start_sequence",
+    "enabled": true,
+    "talker": "文件传输助手",
+    "sender": "",
+    "type": "text",
+    "match_mode": "exact",
+    "pattern": "START",
+    "cooldown_ms": 800,
+    "replies": [
+      "TEST",
+      "第二条"
+    ]
+  }
+]

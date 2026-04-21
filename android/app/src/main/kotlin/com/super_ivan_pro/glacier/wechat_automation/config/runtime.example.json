@@ -1,0 +1,7 @@
+{
+  "sender_backend": "dry_run",
+  "dry_run": true,
+  "inter_message_delay_ms": 180,
+  "retry_count": 1,
+  "log_dir": "logs"
+}

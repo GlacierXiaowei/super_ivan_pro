@@ -1,0 +1,2 @@
+{"seq":"1001","timestamp":"2026-04-21T23:58:00+08:00","talker":"Test Group","talkerName":"Test Group","isChatRoom":true,"sender":"wxid_demo","senderName":"Tester","type":"text","content":"START","raw":{"source":"sample"}}
+{"seq":"1002","timestamp":"2026-04-21T23:58:02+08:00","talker":"Test Group","talkerName":"Test Group","isChatRoom":true,"sender":"wxid_demo","senderName":"Tester","type":"emoji","content":"[emoji]","raw":{"source":"sample"}}
