@@ -37,7 +37,10 @@ This is intentionally not integrated into Flutter yet.
    real `START` message in `文件传输助手`.
 5. Fixed live talker normalization for `filehelper -> 文件传输助手`.
 6. Built a local web console for recent-event inspection and rule editing.
-7. Saved plan and progress notes under `glacier/discussion_progress` and
+7. Installed `wx4py==0.2.1` into the active Python 3.10 environment.
+8. Verified that the real sender backend can be imported and created safely
+   without sending a WeChat message.
+9. Saved plan and progress notes under `glacier/discussion_progress` and
    `glacier/superpower/plans`.
 
 ## Existing commits
@@ -74,6 +77,8 @@ Important note:
 - `scripts/run_bot.py --live` directly selects the live watcher adapter.
 - The current `watcher_backend` field in `runtime.local.json` does not control
   that switch by itself.
+- `runtime.local.json` is intentionally still in `dry_run` mode even though
+  `wx4py` is now installed locally.
 
 ## Machine status verified on 2026-04-22
 
@@ -131,6 +136,18 @@ Web console verification:
   - type
   - trigger pattern
 
+Wx4py install verification:
+
+- `python -m pip index versions wx4py` showed `0.2.1` as the latest available
+  version on this machine
+- `python -m pip install wx4py==0.2.1` completed successfully
+- `python -m pip show wx4py` confirmed install location under Python 3.10
+- `from wx4py import WeChatClient` import probe passed
+- local sender creation probe passed:
+  - `create_sender(RuntimeConfig(sender_backend='wx4py', dry_run=False), ...)`
+  - result: `Wx4pySender`
+- no real WeChat send was executed in this verification stage
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
@@ -142,15 +159,15 @@ Web console verification:
 
 ## Next execution order
 
-1. Use the new web console to select and save different listener targets during
-   testing.
-2. Keep the real sender stage separate from the live watcher and web console
-   stages.
-3. Install and validate `wx4py` on this machine.
-4. Add a safe operator-controlled real-send test flow.
-5. Ask the user before each real WeChat send attempt.
-6. Switch `runtime.local.json` from dry-run to `wx4py` only for the real-send
-   stage.
+1. Use the web console to save the exact listener target that should be used for
+   the first real-send test.
+2. Keep the real sender stage separate from the install-prep stage.
+3. Before the first real-send test, ask the user explicitly because that step
+   will interact with WeChat.
+4. Prepare a temporary non-dry-run runtime config for the first real-send test.
+5. Run one controlled sender probe to a user-approved target.
+6. Only after that result is confirmed, decide whether to switch the main local
+   runtime from `dry_run` to `wx4py`.
 
 ## Commit boundary rule
 

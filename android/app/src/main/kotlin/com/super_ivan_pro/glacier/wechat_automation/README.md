@@ -91,6 +91,18 @@ python scripts/sender_probe.py `
   --group
 ```
 
+Install the optional real sender dependency:
+
+```powershell
+python -m pip install wx4py==0.2.1
+```
+
+Safe import probe without sending:
+
+```powershell
+python -c "from wx4py import WeChatClient; print(WeChatClient.__name__)"
+```
+
 Run the local web console:
 
 ```powershell
@@ -118,6 +130,8 @@ What the console does:
 
 - Default mode is dry-run. It will not send real messages.
 - The `wx4py` backend is optional and requires `wx4py` to be installed locally.
+- Installing `wx4py` only prepares the real sender path. It does not send any
+  WeChat message by itself.
 - The current watcher is replay-based on purpose. It makes the core logic
   testable before wiring in a live event source.
 - The live watcher expects `wechat-decrypt` to be running locally and serving
