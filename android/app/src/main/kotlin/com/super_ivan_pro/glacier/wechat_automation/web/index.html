@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeChat Automation Console</title>
+    <title>微信自动化控制台</title>
     <style>
       :root {
         color-scheme: light;
@@ -186,7 +186,7 @@
   </head>
   <body>
     <header>
-      <h1>WeChat Automation Console</h1>
+      <h1>微信自动化控制台</h1>
       <p>看最近事件，点选监听对象，保存本地规则。当前页面不负责真实发送。</p>
     </header>
 
@@ -215,8 +215,8 @@
             <div class="field">
               <label for="rule-enabled">启用</label>
               <select id="rule-enabled" name="enabled">
-                <option value="true">true</option>
-                <option value="false">false</option>
+                <option value="true">启用</option>
+                <option value="false">停用</option>
               </select>
             </div>
             <div class="field">
@@ -230,29 +230,29 @@
             <div class="field">
               <label for="rule-chat-scope">会话范围</label>
               <select id="rule-chat-scope" name="chat_scope">
-                <option value="any">any</option>
-                <option value="group">group</option>
-                <option value="private">private</option>
+                <option value="any">不限</option>
+                <option value="group">仅群聊</option>
+                <option value="private">仅私聊</option>
               </select>
             </div>
             <div class="field">
               <label for="rule-type">消息类型</label>
               <select id="rule-type" name="type">
-                <option value="text">text</option>
-                <option value="emoji">emoji</option>
-                <option value="image">image</option>
-                <option value="voice">voice</option>
-                <option value="video">video</option>
-                <option value="link">link</option>
-                <option value="unknown">unknown</option>
+                <option value="text">文本</option>
+                <option value="emoji">表情</option>
+                <option value="image">图片</option>
+                <option value="voice">语音</option>
+                <option value="video">视频</option>
+                <option value="link">链接或文件</option>
+                <option value="unknown">不限</option>
               </select>
             </div>
             <div class="field">
               <label for="rule-match-mode">匹配方式</label>
               <select id="rule-match-mode" name="match_mode">
-                <option value="exact">exact</option>
-                <option value="contains">contains</option>
-                <option value="regex">regex</option>
+                <option value="exact">完全匹配</option>
+                <option value="contains">包含匹配</option>
+                <option value="regex">正则匹配</option>
               </select>
             </div>
             <div class="field">
@@ -275,6 +275,7 @@
             <button id="save-rule" type="submit">保存到本地规则</button>
             <button id="reload-rule" class="secondary" type="button">重新读取规则</button>
           </div>
+          <div class="note">界面展示使用中文说明，保存到底层 JSON 时仍保留英文枚举值。</div>
           <div class="note" id="save-status">尚未保存。</div>
         </form>
       </section>

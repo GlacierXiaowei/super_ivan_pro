@@ -5,6 +5,30 @@ const refreshButton = document.getElementById('refresh-events');
 const reloadButton = document.getElementById('reload-rule');
 const form = document.getElementById('rule-form');
 
+const CHAT_SCOPE_LABELS = {
+  any: '不限',
+  group: '仅群聊',
+  private: '仅私聊',
+};
+
+const MESSAGE_TYPE_LABELS = {
+  text: '文本',
+  emoji: '表情',
+  image: '图片',
+  voice: '语音',
+  video: '视频',
+  link: '链接或文件',
+  unknown: '不限',
+};
+
+function getChatScopeLabel(value) {
+  return CHAT_SCOPE_LABELS[value] || value || '未知范围';
+}
+
+function getMessageTypeLabel(value) {
+  return MESSAGE_TYPE_LABELS[value] || value || '未知类型';
+}
+
 function formDataToRule() {
   const data = new FormData(form);
   const replies = String(data.get('replies') || '')
@@ -61,15 +85,15 @@ function renderEvents(events) {
     card.className = 'event-card';
     card.innerHTML = `
       <header>
-        <strong>${event.talker_name || event.talker || '(unknown talker)'}</strong>
+        <strong>${event.talker_name || event.talker || '（未知对象）'}</strong>
       </header>
       <div class="event-meta">
-        <span class="badge">${event.chat_scope || (event.is_chat_room ? 'group' : 'private')}</span>
-        <span class="badge">${event.type || 'unknown'}</span>
-        <span>sender: ${event.sender_name || event.sender || '(empty)'}</span>
-        <span>time: ${event.timestamp || '-'}</span>
+        <span class="badge">${getChatScopeLabel(event.chat_scope || (event.is_chat_room ? 'group' : 'private'))}</span>
+        <span class="badge">${getMessageTypeLabel(event.type || 'unknown')}</span>
+        <span>发送者: ${event.sender_name || event.sender || '（空）'}</span>
+        <span>时间: ${event.timestamp || '-'}</span>
       </div>
-      <div class="event-content">${event.content || '(empty content)'}</div>
+      <div class="event-content">${event.content || '（空内容）'}</div>
     `;
 
     const useButton = document.createElement('button');
