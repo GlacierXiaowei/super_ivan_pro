@@ -7,6 +7,33 @@ This file is the single handoff entry for the current experiment. Future work
 should update this file first, then add narrower supporting notes only when
 needed.
 
+## Design pivot locked on 2026-04-22
+
+The experiment direction has been narrowed again after the first real-send
+attempt review.
+
+New priority:
+
+- first build an `armed_current_chat` mode
+- when armed and the trigger matches, send immediately into the current chat
+  input instead of searching for a named target first
+- require manual start / stop
+- support `max_triggers = N` or unlimited
+- auto-disarm after the configured trigger count is exhausted
+
+Why this changed:
+
+- the current `wx4py` target-search send path is heavier than needed for the
+  "detect then send immediately" goal
+- `wx4py` may reconnect or restart WeChat while preparing accessibility state
+- searching by target name adds latency and more failure points
+- the user explicitly wants the next stage to optimize for fastest response in
+  the already-open current chat
+
+Focused design note:
+
+- `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_armed_current_chat_design_2026-04-22.md`
+
 ## Locked stage 1 goal
 
 - target chat: `文件传输助手`
@@ -148,6 +175,29 @@ Wx4py install verification:
   - result: `Wx4pySender`
 - no real WeChat send was executed in this verification stage
 
+## First real-send attempt result on 2026-04-22
+
+User-approved target used for the probe:
+
+- talker: `多姆斯利普🌙`
+- message: `test`
+
+Observed result:
+
+- `wx4py` connected with `auto_connect=True`
+- the local `wx4py` connection path can repair accessibility settings before
+  sending
+- that path may restart or relaunch WeChat if the underlying environment needs
+  it
+- the actual send failed before delivery because the group target could not be
+  resolved reliably by name
+
+Implication:
+
+- named-target sending via `wx4py` remains useful as a later capability
+- it is no longer the recommended next milestone
+- the next milestone should optimize for current-chat sending instead
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
@@ -159,15 +209,14 @@ Wx4py install verification:
 
 ## Next execution order
 
-1. Use the web console to save the exact listener target that should be used for
-   the first real-send test.
-2. Keep the real sender stage separate from the install-prep stage.
-3. Before the first real-send test, ask the user explicitly because that step
-   will interact with WeChat.
-4. Prepare a temporary non-dry-run runtime config for the first real-send test.
-5. Run one controlled sender probe to a user-approved target.
-6. Only after that result is confirmed, decide whether to switch the main local
-   runtime from `dry_run` to `wx4py`.
+1. Keep the existing live watcher and current text-trigger rule path intact.
+2. Add an explicit armed/disarmed runtime state for manual start and stop.
+3. Add trigger-count exhaustion handling with `max_triggers` or unlimited.
+4. Build a sender that targets the current already-open chat input instead of
+   doing named-target search first.
+5. Add frontmost-window and input-availability guards before any actual send.
+6. Only after the current-chat fast path is stable, revisit named-target send
+   and emoji matching as separate follow-up stages.
 
 ## Commit boundary rule
 
@@ -186,3 +235,5 @@ Wx4py install verification:
   `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_stage1_config_2026-04-22.md`
 - execution plan:
   `android/app/src/main/kotlin/com/super_ivan_pro/glacier/superpower/plans/wechat_automation_execution_plan_2026-04-21.md`
+- armed current-chat design:
+  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_armed_current_chat_design_2026-04-22.md`
