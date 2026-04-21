@@ -46,22 +46,32 @@ Using that endpoint is simpler than consuming raw SSE directly:
    - content
    - derived sequence key
 
-## Current limitation
+## Real live validation completed on 2026-04-22
 
-The live path is coded, but not yet exercised against a real local
+The live path has now been exercised against a real local
 `wechat-decrypt` process on this machine.
 
-That means the next live validation still needs:
+What was verified:
 
-1. `wechat-decrypt` installed and running
-2. local server reachable on `http://127.0.0.1:5678`
-3. one real incoming test message to `文件传输助手`
+1. `python main.py` started the local Web UI successfully.
+2. `http://127.0.0.1:5678/api/history` returned live message data.
+3. a real `START` message sent to `文件传输助手` appeared in history as:
+   - `chat=filehelper`
+   - `is_group=false`
+   - `type=文本`
+4. the bot initially skipped that event because the configured rule used the
+   display name `文件传输助手` while the raw live chat id was `filehelper`.
+5. after adding talker normalization for `filehelper -> 文件传输助手`, the same
+   live path matched successfully and emitted:
+   - `TEST`
+   - `第二条`
+   in dry-run mode.
 
 ## Next step
 
-Run real integration in this order:
+Move to the real sender stage in this order:
 
-1. start `wechat-decrypt` Web UI
-2. run the bot with `--live`
-3. send `START` to `文件传输助手`
-4. verify that the bot emits the two configured replies
+1. keep live watcher code unchanged unless a new talker alias issue appears
+2. install and validate `wx4py`
+3. switch from dry-run to a real sender only with explicit user approval before
+   any WeChat send action

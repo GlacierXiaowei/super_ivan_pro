@@ -92,12 +92,13 @@ class WechatDecryptHistoryWatcher:
         }
         message_type = type_mapping.get(str(raw_type), MessageType.UNKNOWN)
         seq = self._dedupe_key(payload)
+        talker_name = self._display_talker_name(talker)
 
         return MessageEvent(
             seq=seq,
             timestamp=str(timestamp),
             talker=talker,
-            talker_name=talker,
+            talker_name=talker_name,
             is_chat_room=bool(payload.get("is_group", False)),
             sender=str(payload.get("sender") or ""),
             sender_name=str(payload.get("sender") or ""),
@@ -105,6 +106,12 @@ class WechatDecryptHistoryWatcher:
             content=content,
             raw=dict(payload),
         )
+
+    @staticmethod
+    def _display_talker_name(talker: str) -> str:
+        if talker == "filehelper":
+            return "文件传输助手"
+        return talker
 
     @staticmethod
     def _dedupe_key(payload: dict) -> str:
