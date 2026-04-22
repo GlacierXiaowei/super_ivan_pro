@@ -442,6 +442,52 @@ Result:
   without relying on the outer dispatcher retry
 - auto-disarm after one successful trigger also worked as designed
 
+## Stability re-test result on 2026-04-22
+
+After the first controlled live re-test succeeded, the user manually re-armed
+the bot for one more stability pass.
+
+Observed preconditions:
+
+- `arm_state.local.json` was reset back to:
+  - `enabled = true`
+  - `triggers_sent = 0`
+  - `remaining_triggers = 1`
+- `scripts/run_bot.py --live` was still running
+- the selected current chat was still `文件传输助手`
+
+Controlled trigger method:
+
+- native keyboard input was used again to send one more `START` into the
+  already-open `文件传输助手` chat
+
+Observed successful chain:
+
+- bot log showed:
+  - `15:01:35 event_received ... talker=文件传输助手 ... content=START`
+  - `15:01:35 rule_match rule=filehelper_start_sequence`
+  - `15:01:39 current_chat_send ... payload=TEST`
+  - `15:01:39 dispatch_success ... attempt=1 reply_index=1`
+  - `15:01:43 current_chat_send ... payload=第二条`
+  - `15:01:43 dispatch_success ... attempt=1 reply_index=2`
+  - `15:01:43 armed_state_update enabled=False sent=1 remaining=0 reason=budget_exhausted`
+- `wechat-decrypt` history also showed:
+  - `15:01:35 START`
+  - `15:01:38 TEST`
+  - `15:01:42 第二条`
+- WeChat UI accessibility snapshot showed the same final visible message chain:
+  - `START`
+  - `TEST`
+  - `第二条`
+
+Result:
+
+- the same trigger-reply chain succeeded again on a second controlled live run
+- this reduces the chance that the earlier success was a one-off timing fluke
+- for the current `文件传输助手 / START / TEST + 第二条 / max_triggers=1`
+  setup, the workflow is now validated across two consecutive controlled live
+  runs
+
 ## Related files
 
 - build progress:
