@@ -111,6 +111,61 @@ class WebConsoleApiTest(unittest.TestCase):
             self.assertEqual(events[0]["talker_name"], "文件传输助手")
             self.assertEqual(events[0]["chat_scope"], "private")
 
+    def test_arm_state_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime_path = Path(tmp) / "runtime.json"
+            rules_path = Path(tmp) / "rules.json"
+            arm_state_path = Path(tmp) / "arm_state.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "watcher_url": "http://127.0.0.1:5678",
+                        "sender_backend": "dry_run",
+                        "dry_run": True,
+                        "arm_state_path": str(arm_state_path),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            rules_path.write_text("[]", encoding="utf-8")
+            arm_state_path.write_text(
+                json.dumps(
+                    {
+                        "enabled": False,
+                        "mode": "armed_current_chat",
+                        "max_triggers": 1,
+                        "triggers_sent": 0,
+                        "remaining_triggers": 1,
+                        "reason": "not_armed",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(
+                runtime_path=runtime_path,
+                rules_path=rules_path,
+                watcher_factory=DummyWatcher,
+            )
+            client = app.test_client()
+
+            get_state = client.get("/api/arm-state")
+            self.assertEqual(get_state.status_code, 200)
+            self.assertFalse(get_state.get_json()["enabled"])
+
+            arm_response = client.post(
+                "/api/arm-state",
+                json={"enabled": True, "max_triggers": 2},
+            )
+            self.assertEqual(arm_response.status_code, 200)
+            self.assertTrue(arm_response.get_json()["enabled"])
+            self.assertEqual(arm_response.get_json()["remaining_triggers"], 2)
+
+            disarm_response = client.post("/api/arm-state", json={"enabled": False})
+            self.assertEqual(disarm_response.status_code, 200)
+            self.assertFalse(disarm_response.get_json()["enabled"])
+            self.assertEqual(disarm_response.get_json()["reason"], "manual_disarm")
+
 
 if __name__ == "__main__":
     unittest.main()

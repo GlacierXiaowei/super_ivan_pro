@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.arm_state import ArmStateStore
 from core.config_loader import load_runtime_config
 from core.models import MessageEvent, RuntimeConfig
 from core.watcher_adapter import WechatDecryptHistoryWatcher
@@ -46,6 +47,10 @@ def create_app(
     resolved_runtime_path = Path(runtime_path).resolve()
     resolved_rules_path = Path(rules_path).resolve()
 
+    def build_arm_state_store() -> ArmStateStore:
+        runtime = load_runtime_config(resolved_runtime_path)
+        return ArmStateStore(ROOT / runtime.arm_state_path)
+
     @app.get("/")
     def index() -> object:
         return send_from_directory(WEB_DIR, "index.html")
@@ -69,6 +74,27 @@ def create_app(
             encoding="utf-8",
         )
         return jsonify({"ok": True})
+
+    @app.get("/api/arm-state")
+    def get_arm_state() -> object:
+        store = build_arm_state_store()
+        return jsonify(store.read().to_dict())
+
+    @app.post("/api/arm-state")
+    def save_arm_state() -> object:
+        payload = request.get_json(force=True)
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "arm-state payload must be an object"}), 400
+
+        store = build_arm_state_store()
+        enabled = bool(payload.get("enabled", False))
+        if enabled:
+            raw_max = payload.get("max_triggers", 1)
+            max_triggers = int(raw_max)
+            state = store.arm(max_triggers=max_triggers)
+        else:
+            state = store.disarm(reason="manual_disarm")
+        return jsonify(state.to_dict())
 
     @app.get("/api/events")
     def get_events() -> object:

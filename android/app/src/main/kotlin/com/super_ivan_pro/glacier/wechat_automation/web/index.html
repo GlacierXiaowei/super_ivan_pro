@@ -187,7 +187,7 @@
   <body>
     <header>
       <h1>微信自动化控制台</h1>
-      <p>看最近事件，点选监听对象，保存本地规则。当前页面不负责真实发送。</p>
+      <p>看最近事件，点选监听对象，保存本地规则，并手动启动或停止当前实验。</p>
     </header>
 
     <main>
@@ -204,8 +204,18 @@
 
       <section>
         <div class="section-title">
-          <h2>规则编辑</h2>
+          <h2>实验控制与规则编辑</h2>
         </div>
+        <div class="field">
+          <label for="max-triggers">触发上限</label>
+          <input id="max-triggers" type="text" value="1" />
+        </div>
+        <div class="actions">
+          <button id="arm-once" type="button">启动监听</button>
+          <button id="arm-unlimited" class="secondary" type="button">无上限启动</button>
+          <button id="disarm" class="secondary" type="button">停止监听</button>
+        </div>
+        <div class="note" id="arm-status">当前未启动。</div>
         <form id="rule-form">
           <div class="form-grid">
             <div class="field">

@@ -1,8 +1,13 @@
 const eventsList = document.getElementById('events-list');
 const statusNode = document.getElementById('status');
 const saveStatusNode = document.getElementById('save-status');
+const armStatusNode = document.getElementById('arm-status');
 const refreshButton = document.getElementById('refresh-events');
 const reloadButton = document.getElementById('reload-rule');
+const armOnceButton = document.getElementById('arm-once');
+const armUnlimitedButton = document.getElementById('arm-unlimited');
+const disarmButton = document.getElementById('disarm');
+const maxTriggersInput = document.getElementById('max-triggers');
 const form = document.getElementById('rule-form');
 
 const CHAT_SCOPE_LABELS = {
@@ -107,6 +112,16 @@ function renderEvents(events) {
   }
 }
 
+function renderArmState(state) {
+  if (!armStatusNode) {
+    return;
+  }
+  const remaining = state.remaining_triggers == null ? '无限' : String(state.remaining_triggers);
+  armStatusNode.textContent = state.enabled
+    ? `当前已启动，已触发 ${state.triggers_sent} 次，剩余 ${remaining} 次。`
+    : `当前未启动，原因：${state.reason || 'not_armed'}。`;
+}
+
 async function loadEvents() {
   statusNode.textContent = '正在刷新事件...';
   try {
@@ -140,6 +155,37 @@ async function loadRules() {
   }
 }
 
+async function loadArmState() {
+  try {
+    const response = await fetch('/api/arm-state');
+    if (!response.ok) {
+      throw new Error(`arm-state ${response.status}`);
+    }
+    renderArmState(await response.json());
+  } catch (error) {
+    if (armStatusNode) {
+      armStatusNode.textContent = `实验状态加载失败: ${error.message}`;
+    }
+  }
+}
+
+async function updateArmState(payload) {
+  if (armStatusNode) {
+    armStatusNode.textContent = '正在更新实验状态...';
+  }
+  const response = await fetch('/api/arm-state', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`arm-state-save ${response.status}`);
+  }
+  renderArmState(await response.json());
+}
+
 async function saveRules(event) {
   event.preventDefault();
   const payload = [formDataToRule()];
@@ -164,7 +210,25 @@ async function saveRules(event) {
 refreshButton.addEventListener('click', loadEvents);
 reloadButton.addEventListener('click', loadRules);
 form.addEventListener('submit', saveRules);
+armOnceButton.addEventListener('click', () => {
+  const value = String(maxTriggersInput.value || '1').trim();
+  updateArmState({ enabled: true, max_triggers: Number(value || '1') }).catch((error) => {
+    armStatusNode.textContent = `实验状态保存失败: ${error.message}`;
+  });
+});
+armUnlimitedButton.addEventListener('click', () => {
+  updateArmState({ enabled: true, max_triggers: 0 }).catch((error) => {
+    armStatusNode.textContent = `实验状态保存失败: ${error.message}`;
+  });
+});
+disarmButton.addEventListener('click', () => {
+  updateArmState({ enabled: false }).catch((error) => {
+    armStatusNode.textContent = `实验状态保存失败: ${error.message}`;
+  });
+});
 
 loadRules();
+loadArmState();
 loadEvents();
+window.setInterval(loadArmState, 3000);
 window.setInterval(loadEvents, 3000);
