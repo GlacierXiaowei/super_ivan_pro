@@ -386,6 +386,62 @@ Current confidence boundary:
 - a fresh live WeChat re-test is still pending and must be user-approved first,
   because it will type into the real foreground chat window
 
+## Controlled live re-test result on 2026-04-22
+
+User approval was obtained before touching the WeChat desktop window.
+
+Observed runtime state before the re-test:
+
+- `wechat-decrypt` live API was reachable on `http://127.0.0.1:5678`
+- web console was running on `http://127.0.0.1:8090`
+- `scripts/run_bot.py --runtime config/runtime.local.json --rules config/rules.local.json --live`
+  was restarted and confirmed running
+- `runtime.local.json` was still:
+  - `sender_backend = current_chat`
+  - `dry_run = false`
+- `arm_state.local.json` was armed with:
+  - `enabled = true`
+  - `max_triggers = 1`
+  - `remaining_triggers = 1`
+
+Important probe note:
+
+- a direct `scripts/current_chat_probe.py --message START` call returned a
+  sender success log, but did not produce a visible new WeChat message in the
+  current chat
+- in this environment, that probe path is not yet a trustworthy live-verification
+  tool by itself
+
+Controlled trigger method used for the successful re-test:
+
+- WeChat accessibility snapshot confirmed that the current selected chat was
+  `文件传输助手`
+- the trigger text `START` was then entered into the already-focused WeChat
+  input box using native keyboard input and submitted with `Enter`
+
+Observed successful chain:
+
+- `wechat-decrypt` history returned a fresh `filehelper` event:
+  - `14:48:38 START`
+- bot log showed:
+  - `14:48:37 rule_match rule=filehelper_start_sequence`
+  - `14:48:41 current_chat_send ... payload=TEST`
+  - `14:48:41 dispatch_success ... attempt=1 reply_index=1`
+  - `14:48:45 current_chat_send ... payload=第二条`
+  - `14:48:45 dispatch_success ... attempt=1 reply_index=2`
+  - `14:48:45 armed_state_update enabled=False sent=1 remaining=0 reason=budget_exhausted`
+- `wechat-decrypt` history then also showed the bot replies:
+  - `14:48:41 TEST`
+  - `14:48:45 第二条`
+
+Result:
+
+- the full live trigger -> current-chat send chain is now verified working for
+  the `文件传输助手 / START / TEST + 第二条` experiment
+- after the consecutive-send retry fix, both replies were sent on attempt `1`
+  without relying on the outer dispatcher retry
+- auto-disarm after one successful trigger also worked as designed
+
 ## Related files
 
 - build progress:
