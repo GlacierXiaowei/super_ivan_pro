@@ -309,6 +309,27 @@ Observed result:
   commit
 - the next commit after this one should target the real sender stage only
 
+## Local runtime switch on 2026-04-22
+
+After the dry-run chain was verified end to end against `filehelper`, the local
+operator runtime was intentionally switched from safe simulation to real current
+chat sending:
+
+- file:
+  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/runtime.local.json`
+- `sender_backend = current_chat`
+- `dry_run = false`
+
+Operational implication:
+
+- restarting `scripts/run_bot.py` with `config/runtime.local.json` now enables
+  real message sending into the already-open current WeChat chat
+- the bot still requires:
+  - WeChat in the foreground
+  - a matching rule
+  - armed state enabled
+- after this switch, any new live probe must be treated as a real send step
+
 ## Related files
 
 - build progress:
