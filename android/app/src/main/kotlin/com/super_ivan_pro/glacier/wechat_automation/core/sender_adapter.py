@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+from .current_chat_sender import CurrentChatSender
 from .models import MessageEvent, RuntimeConfig
 
 
@@ -39,7 +40,9 @@ class Wx4pySender:
         target_name = context.display_talker
         target_type = "group" if context.is_chat_room else "contact"
         with self._client_cls(auto_connect=True) as wx:
-            wx.chat_window.send_to(target_name, message, target_type=target_type)
+            sent = wx.chat_window.send_to(target_name, message, target_type=target_type)
+        if not sent:
+            raise RuntimeError(f"wx4py_send_failed target={target_name}")
         self._logger.info(
             "wx4py_send talker=%s target_type=%s payload=%s",
             target_name,
@@ -52,6 +55,8 @@ def create_sender(runtime: RuntimeConfig, logger: logging.Logger) -> Sender:
     backend = runtime.sender_backend.lower().strip()
     if runtime.dry_run or backend == "dry_run":
         return DryRunSender(logger)
+    if backend == "current_chat":
+        return CurrentChatSender(logger)
     if backend == "wx4py":
         return Wx4pySender(logger)
     raise ValueError(f"Unsupported sender backend: {runtime.sender_backend}")
