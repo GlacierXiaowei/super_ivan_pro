@@ -7,5 +7,6 @@
   "dry_run": true,
   "inter_message_delay_ms": 180,
   "retry_count": 1,
-  "log_dir": "logs"
+  "log_dir": "logs",
+  "arm_state_path": "config/arm_state.local.json"
 }

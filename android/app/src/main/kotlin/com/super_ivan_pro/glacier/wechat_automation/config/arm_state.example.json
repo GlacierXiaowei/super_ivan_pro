@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "mode": "armed_current_chat",
+  "max_triggers": 1,
+  "triggers_sent": 0,
+  "remaining_triggers": 1,
+  "reason": "not_armed"
+}

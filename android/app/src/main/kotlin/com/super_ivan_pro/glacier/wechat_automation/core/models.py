@@ -126,6 +126,7 @@ class RuntimeConfig:
     inter_message_delay_ms: int = 180
     retry_count: int = 1
     log_dir: str = "logs"
+    arm_state_path: str = "config/arm_state.local.json"
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RuntimeConfig":
@@ -139,6 +140,7 @@ class RuntimeConfig:
             inter_message_delay_ms=int(payload.get("inter_message_delay_ms") or 180),
             retry_count=int(payload.get("retry_count") or 1),
             log_dir=str(payload.get("log_dir") or "logs"),
+            arm_state_path=str(payload.get("arm_state_path") or "config/arm_state.local.json"),
         )
 
 
