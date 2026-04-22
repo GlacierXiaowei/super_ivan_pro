@@ -261,6 +261,28 @@ Important current limitation:
 - this means the current fast path is proven workable, but not yet fully
   zero-touch inside the WeChat window
 
+## Auto-focus current-chat probe result on 2026-04-22
+
+After commit `b1667bd` (`feat(glacier): auto-focus current chat input`), a new
+user-approved real send probe was executed.
+
+Probe conditions:
+
+- temporary runtime only
+- `sender_backend = current_chat`
+- `dry_run = false`
+- WeChat main window was brought to the foreground
+- no manual click into the chat input was needed before sending
+
+Observed result:
+
+- `scripts/current_chat_probe.py --message test` completed successfully
+- probe log: `current_chat_send ... payload=test`
+- the current-chat path can now:
+  - validate WeChat is foreground
+  - auto-find the chat input when focus is not already editable
+  - send the message without a separate helper focus step
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
