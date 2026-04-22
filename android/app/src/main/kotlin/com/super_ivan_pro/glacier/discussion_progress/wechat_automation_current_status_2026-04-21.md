@@ -69,11 +69,23 @@ This is intentionally not integrated into Flutter yet.
    without sending a WeChat message.
 9. Saved plan and progress notes under `glacier/discussion_progress` and
    `glacier/superpower/plans`.
+10. Added file-backed arm/disarm state under
+    `config/arm_state.local.json`.
+11. Gated the bot on armed state and trigger-budget exhaustion.
+12. Added the `current_chat` sender backend for lightweight foreground-WeChat
+    sending.
+13. Added web-console arm/disarm controls and remaining-budget display.
+14. Verified the current Python test suite at `15/15` passing after the armed
+    current-chat stage.
 
 ## Existing commits
 
 - `e9d9bb4` `feat(glacier): scaffold wechat automation experiment`
 - `3c1e25b` `feat(glacier): add wechat-decrypt live watcher adapter`
+- `6b7b8af` `feat(glacier): add armed current-chat state store`
+- `ee23779` `feat(glacier): gate bot with armed trigger budget`
+- `b44313e` `feat(glacier): add current chat sender`
+- `a293c15` `feat(glacier): add arm controls to web console`
 
 ## Current local rule/config state
 
@@ -98,6 +110,16 @@ Runtime file:
 - `watcher_url: http://127.0.0.1:5678`
 - `poll_interval_ms: 300`
 - `history_limit: 200`
+- `arm_state_path: config/arm_state.local.json`
+
+Arm state file:
+
+- file:
+  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/arm_state.local.json`
+- default mode: `armed_current_chat`
+- default enabled: `false`
+- default trigger budget: `1`
+- unlimited mode representation: `max_triggers = 0`
 
 Important note:
 
@@ -198,6 +220,22 @@ Implication:
 - it is no longer the recommended next milestone
 - the next milestone should optimize for current-chat sending instead
 
+## Armed current-chat stage result on 2026-04-22
+
+- added file-backed arm/disarm state under `config/arm_state.local.json`
+- added `current_chat` sender backend for foreground-WeChat sending
+- added trigger budget exhaustion and auto-disarm
+- added web-console arm/disarm controls and remaining-budget display
+- kept named-target `wx4py` sending as a separate later-stage capability
+
+Verification completed in this stage:
+
+- `python -m unittest discover tests -v`
+- result: `15/15` passing
+- verified focused sender guard:
+  - non-WeChat foreground window -> blocked
+  - WeChat foreground window with editable focus -> allowed in unit tests
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
@@ -209,14 +247,13 @@ Implication:
 
 ## Next execution order
 
-1. Keep the existing live watcher and current text-trigger rule path intact.
-2. Add an explicit armed/disarmed runtime state for manual start and stop.
-3. Add trigger-count exhaustion handling with `max_triggers` or unlimited.
-4. Build a sender that targets the current already-open chat input instead of
-   doing named-target search first.
-5. Add frontmost-window and input-availability guards before any actual send.
-6. Only after the current-chat fast path is stable, revisit named-target send
-   and emoji matching as separate follow-up stages.
+1. Run a local web-console smoke test for the new arm/disarm panel.
+2. Ask the user before any real `current_chat` probe.
+3. If approved, run one controlled `scripts/current_chat_probe.py` send to the
+   already-open chat.
+4. Only after that result is confirmed, decide whether to switch the main local
+   runtime from `dry_run` to `current_chat`.
+5. Keep named-target sending and emoji matching as separate later stages.
 
 ## Commit boundary rule
 

@@ -21,6 +21,22 @@ The live watcher is now validated. The current operator-facing next step is a
 local web console for testing different listener targets without hand-editing
 the JSON files.
 
+## Armed current-chat mode
+
+This mode is optimized for fastest local response:
+
+- the operator manually opens the target chat first
+- the operator manually arms the experiment from the local web console
+- the bot keeps listening through `wechat-decrypt`
+- when the trigger matches, replies are sent into the current WeChat chat only
+- the run auto-disarms after the configured trigger budget is exhausted
+
+Important safety boundary:
+
+- this mode must not send unless the foreground window is WeChat
+- this mode must not send unless the focused control is editable
+- any real send still requires explicit user approval before the manual probe step
+
 ## Layout
 
 ```text
@@ -124,7 +140,8 @@ What the console does:
 - shows recent normalized live events
 - lets the operator click one event to prefill a rule
 - lets the operator save the rule back to `config/rules.local.json`
-- does not send real messages
+- lets the operator arm or disarm the current experiment
+- does not send real messages by itself
 
 ## Notes
 
@@ -132,6 +149,8 @@ What the console does:
 - The `wx4py` backend is optional and requires `wx4py` to be installed locally.
 - Installing `wx4py` only prepares the real sender path. It does not send any
   WeChat message by itself.
+- The `current_chat` backend is the preferred fast path for this experiment.
+  It validates the frontmost window and focused input before sending.
 - The current watcher is replay-based on purpose. It makes the core logic
   testable before wiring in a live event source.
 - The live watcher expects `wechat-decrypt` to be running locally and serving
