@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.arm_state import ArmStateStore
 from core.bot import WeChatAutomationBot
 from core.config_loader import load_rules, load_runtime_config
 from core.dispatcher import SendDispatcher
@@ -35,7 +36,8 @@ def main() -> int:
     logger = configure_logger("wechat_automation", log_dir)
     sender = create_sender(runtime, logger)
     dispatcher = SendDispatcher(sender, runtime, logger)
-    bot = WeChatAutomationBot(rules, dispatcher, logger)
+    arm_state_store = ArmStateStore(ROOT / runtime.arm_state_path)
+    bot = WeChatAutomationBot(rules, dispatcher, logger, arm_state_store)
     if args.live:
         watcher = WechatDecryptHistoryWatcher(runtime)
     else:

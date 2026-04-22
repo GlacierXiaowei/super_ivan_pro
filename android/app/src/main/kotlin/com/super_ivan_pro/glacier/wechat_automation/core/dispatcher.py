@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 
 from .models import MessageEvent, Rule, RuntimeConfig
 from .sender_adapter import Sender
+
+
+@dataclass(slots=True)
+class DispatchReport:
+    attempted: int
+    sent: int
 
 
 class SendDispatcher:
@@ -18,11 +25,14 @@ class SendDispatcher:
         self._runtime = runtime
         self._logger = logger
 
-    def dispatch(self, rule: Rule, context: MessageEvent) -> None:
+    def dispatch(self, rule: Rule, context: MessageEvent) -> DispatchReport:
+        sent = 0
         for index, reply in enumerate(rule.replies, start=1):
             self._send_with_retry(context, reply, rule.id, index)
+            sent += 1
             if index != len(rule.replies):
                 time.sleep(self._runtime.inter_message_delay_ms / 1000.0)
+        return DispatchReport(attempted=len(rule.replies), sent=sent)
 
     def _send_with_retry(
         self,

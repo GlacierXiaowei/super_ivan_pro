@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from .arm_state import ArmStateStore
 from .dedupe import CooldownGate, SequenceDeduper
 from .dispatcher import SendDispatcher
 from .matcher import match_rule
@@ -14,10 +15,12 @@ class WeChatAutomationBot:
         rules: list[Rule],
         dispatcher: SendDispatcher,
         logger: logging.Logger,
+        arm_state_store: ArmStateStore,
     ) -> None:
         self._rules = rules
         self._dispatcher = dispatcher
         self._logger = logger
+        self._arm_state_store = arm_state_store
         self._deduper = SequenceDeduper()
         self._cooldown = CooldownGate()
 
@@ -30,6 +33,15 @@ class WeChatAutomationBot:
             event.message_type.value,
             event.content,
         )
+        state = self._arm_state_store.read()
+        if not state.enabled:
+            self._logger.info(
+                "event_skip seq=%s reason=not_armed state_reason=%s",
+                event.seq,
+                state.reason,
+            )
+            return
+
         for rule in self._rules:
             result = match_rule(event, rule)
             if not result.matched:
@@ -53,4 +65,13 @@ class WeChatAutomationBot:
 
             self._deduper.mark_seen(dedupe_key)
             self._logger.info("rule_match rule=%s seq=%s", rule.id, event.seq)
-            self._dispatcher.dispatch(rule, event)
+            report = self._dispatcher.dispatch(rule, event)
+            if report.sent == len(rule.replies):
+                updated = self._arm_state_store.record_success()
+                self._logger.info(
+                    "armed_state_update enabled=%s sent=%s remaining=%s reason=%s",
+                    updated.enabled,
+                    updated.triggers_sent,
+                    updated.remaining_triggers,
+                    updated.reason,
+                )
