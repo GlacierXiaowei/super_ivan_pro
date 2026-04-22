@@ -236,6 +236,31 @@ Verification completed in this stage:
   - non-WeChat foreground window -> blocked
   - WeChat foreground window with editable focus -> allowed in unit tests
 
+## Manual current-chat probe result on 2026-04-22
+
+User-approved real send probe was executed with a temporary runtime only:
+
+- `sender_backend = current_chat`
+- `dry_run = false`
+- `runtime.local.json` remained unchanged
+
+Observed probe sequence:
+
+1. first send attempt was blocked with `foreground_not_wechat`
+2. after focusing the WeChat main window, second attempt was blocked with
+   `focused_control_not_editable`
+3. after explicitly focusing the chat input control, the probe succeeded and
+   sent payload `test`
+
+Important current limitation:
+
+- the current `current_chat` sender implementation requires the chat input to
+  already be focused
+- for the successful probe, a one-off helper step was used to focus the input
+  before running `scripts/current_chat_probe.py`
+- this means the current fast path is proven workable, but not yet fully
+  zero-touch inside the WeChat window
+
 ## Operator boundary
 
 - do not control or type into WeChat while the user is actively using the mouse
