@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import time
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -135,6 +136,9 @@ class Wx4pyChatInputFinder:
 
 
 class CurrentChatSender:
+    INPUT_LOOKUP_ATTEMPTS = 3
+    INPUT_LOOKUP_RETRY_DELAY_SECONDS = 0.12
+
     def __init__(
         self,
         logger: logging.Logger,
@@ -149,20 +153,47 @@ class CurrentChatSender:
         self._input_driver = input_driver or Wx4pyInputDriver(logger)
         self._chat_input_finder = chat_input_finder or Wx4pyChatInputFinder()
 
+    @staticmethod
+    def _is_editable_control(control: object | None) -> bool:
+        if control is None:
+            return False
+        control_type = str(getattr(control, "ControlTypeName", "") or "")
+        return control_type in {"EditControl", "DocumentControl"}
+
+    def _resolve_chat_input(self, window: WindowSnapshot) -> object:
+        saw_focus_control = False
+        attempts = max(self.INPUT_LOOKUP_ATTEMPTS, 1)
+
+        for attempt in range(1, attempts + 1):
+            control = self._focus_provider.get_focused_control()
+            if control is not None:
+                saw_focus_control = True
+                if self._is_editable_control(control):
+                    return control
+
+            control = self._chat_input_finder.find_chat_input(window)
+            if self._is_editable_control(control):
+                return control
+
+            if attempt < attempts:
+                self._logger.debug(
+                    "chat_input_retry attempt=%s/%s window=%s",
+                    attempt,
+                    attempts,
+                    window.title,
+                )
+                time.sleep(self.INPUT_LOOKUP_RETRY_DELAY_SECONDS)
+
+        if not saw_focus_control:
+            raise RuntimeError("focused_control_missing")
+        raise RuntimeError("chat_input_not_found")
+
     def send_text(self, context: MessageEvent, message: str) -> None:
         window = self._window_inspector.snapshot()
         if not window.looks_like_wechat:
             raise RuntimeError("foreground_not_wechat")
 
-        control = self._focus_provider.get_focused_control()
-        if control is None:
-            raise RuntimeError("focused_control_missing")
-
-        control_type = str(getattr(control, "ControlTypeName", "") or "")
-        if control_type not in {"EditControl", "DocumentControl"}:
-            control = self._chat_input_finder.find_chat_input(window)
-            if control is None:
-                raise RuntimeError("chat_input_not_found")
+        control = self._resolve_chat_input(window)
 
         if not self._input_driver.send_text(control, message):
             raise RuntimeError("current_chat_send_failed")

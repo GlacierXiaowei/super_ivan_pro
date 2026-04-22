@@ -77,6 +77,12 @@ This is intentionally not integrated into Flutter yet.
 13. Added web-console arm/disarm controls and remaining-budget display.
 14. Verified the current Python test suite at `15/15` passing after the armed
     current-chat stage.
+15. Switched the local operator runtime to real `current_chat` sending.
+16. Added an internal short retry loop so consecutive replies can re-acquire
+    the chat input inside one send call instead of failing on the first
+    transient miss.
+17. Verified the current Python test suite at `18/18` passing after the
+    consecutive-send retry fix.
 
 ## Existing commits
 
@@ -86,6 +92,7 @@ This is intentionally not integrated into Flutter yet.
 - `ee23779` `feat(glacier): gate bot with armed trigger budget`
 - `b44313e` `feat(glacier): add current chat sender`
 - `a293c15` `feat(glacier): add arm controls to web console`
+- `d954a95` `feat(glacier): switch local runtime to real current-chat sending`
 
 ## Current local rule/config state
 
@@ -93,10 +100,11 @@ Rules file:
 
 - file:
   `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/rules.local.json`
-- talker: `文件传输助手`
+- talker: `filehelper`
 - sender filter: empty
 - type: `text`
-- match mode: `exact`
+- chat scope: `private`
+- match mode: `regex`
 - pattern: `START`
 - cooldown: `800ms`
 - replies: `TEST`, `第二条`
@@ -105,20 +113,24 @@ Runtime file:
 
 - file:
   `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/runtime.local.json`
-- sender backend: `dry_run`
-- `dry_run: true`
+- sender backend: `current_chat`
+- `dry_run: false`
 - `watcher_url: http://127.0.0.1:5678`
 - `poll_interval_ms: 300`
 - `history_limit: 200`
+- `inter_message_delay_ms: 180`
+- `retry_count: 1`
 - `arm_state_path: config/arm_state.local.json`
 
 Arm state file:
 
 - file:
   `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/arm_state.local.json`
-- default mode: `armed_current_chat`
-- default enabled: `false`
-- default trigger budget: `1`
+- current mode: `armed_current_chat`
+- current enabled: `true`
+- current trigger budget: `1`
+- current `triggers_sent: 0`
+- current `remaining_triggers: 1`
 - unlimited mode representation: `max_triggers = 0`
 
 Important note:
@@ -126,8 +138,7 @@ Important note:
 - `scripts/run_bot.py --live` directly selects the live watcher adapter.
 - The current `watcher_backend` field in `runtime.local.json` does not control
   that switch by itself.
-- `runtime.local.json` is intentionally still in `dry_run` mode even though
-  `wx4py` is now installed locally.
+- `runtime.local.json` is now a real-send runtime and must be treated as such.
 
 ## Machine status verified on 2026-04-22
 
@@ -294,12 +305,13 @@ Observed result:
 
 ## Next execution order
 
-1. Run a local web-console smoke test for the new arm/disarm panel.
-2. Ask the user before any real `current_chat` probe.
-3. If approved, run one controlled `scripts/current_chat_probe.py` send to the
-   already-open chat.
-4. Only after that result is confirmed, decide whether to switch the main local
-   runtime from `dry_run` to `current_chat`.
+1. Ask the user before any real `current_chat` probe.
+2. If approved, re-run one controlled live trigger test in the already-open
+   chat with no desktop interference.
+3. Check whether both configured replies are sent in one batch without relying
+   on outer retry.
+4. If live sending still fails, inspect the new log output before changing more
+   code.
 5. Keep named-target sending and emoji matching as separate later stages.
 
 ## Commit boundary rule
@@ -307,7 +319,8 @@ Observed result:
 - commit after each completed stage
 - do not bundle live watcher validation and real sender integration into one
   commit
-- the next commit after this one should target the real sender stage only
+- the next commit after this note should capture the current-chat stability fix
+  only
 
 ## Local runtime switch on 2026-04-22
 
@@ -329,6 +342,49 @@ Operational implication:
   - a matching rule
   - armed state enabled
 - after this switch, any new live probe must be treated as a real send step
+
+## Consecutive-send retry fix on 2026-04-22
+
+Fresh failure evidence before the fix:
+
+- live bot log showed `rule_match` for `文件传输助手 -> START`
+- first real reply `TEST` only succeeded on outer retry attempt 2
+- second reply `第二条` failed with `chat_input_not_found` on both outer retry
+  attempts
+
+Root-cause hypothesis used for the fix:
+
+- the live watcher and matcher were already working
+- the unstable point was inside `CurrentChatSender.send_text(...)`
+- after the first message, WeChat could briefly expose a non-editable focused
+  control or temporarily hide the editable chat input from a single lookup
+- the sender only attempted one immediate input lookup per send, so a transient
+  miss aborted the whole reply
+
+Implemented fix:
+
+- file:
+  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/current_chat_sender.py`
+- added an internal `_resolve_chat_input(...)` path
+- each send now performs up to `3` short lookup attempts with a `0.12s` delay
+  before raising `chat_input_not_found`
+- this retry stays inside one send call, so it is much cheaper than waiting for
+  the outer dispatcher retry
+
+Verification after the fix:
+
+- targeted sender test:
+  `python -m unittest android.app.src.main.kotlin.com.super_ivan_pro.glacier.wechat_automation.tests.test_current_chat_sender -v`
+- result: `5/5` passing
+- full suite:
+  `python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -v`
+- result: `18/18` passing
+
+Current confidence boundary:
+
+- unit-level reproduction for the consecutive-send miss is now covered
+- a fresh live WeChat re-test is still pending and must be user-approved first,
+  because it will type into the real foreground chat window
 
 ## Related files
 

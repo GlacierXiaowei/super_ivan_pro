@@ -30,6 +30,17 @@ class DummyFocusProvider:
         return self._control
 
 
+class SequenceFocusProvider:
+    def __init__(self, controls: list[object]) -> None:
+        self._controls = list(controls)
+        self._last = controls[-1]
+
+    def get_focused_control(self) -> object:
+        if self._controls:
+            self._last = self._controls.pop(0)
+        return self._last
+
+
 class DummyInputDriver:
     def __init__(self) -> None:
         self.sent: list[tuple[object, str]] = []
@@ -50,6 +61,17 @@ class DummyChatInputFinder:
 
     def find_chat_input(self, window: WindowSnapshot) -> object | None:
         return self._control
+
+
+class SequenceChatInputFinder:
+    def __init__(self, controls: list[object | None]) -> None:
+        self._controls = list(controls)
+        self._last = controls[-1] if controls else None
+
+    def find_chat_input(self, window: WindowSnapshot) -> object | None:
+        if self._controls:
+            self._last = self._controls.pop(0)
+        return self._last
 
 
 def build_event() -> MessageEvent:
@@ -126,6 +148,33 @@ class CurrentChatSenderTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "chat_input_not_found"):
             sender.send_text(build_event(), "TEST")
+
+    def test_retries_chat_input_lookup_within_second_send(self) -> None:
+        driver = DummyInputDriver()
+        focused_control = DummyControl()
+        recovered_control = DummyControl()
+        sender = CurrentChatSender(
+            logger=logging.getLogger("test"),
+            window_inspector=DummyWindowInspector(
+                WindowSnapshot(hwnd=1, title="微信", class_name="WeChatMainWndForPC")
+            ),
+            focus_provider=SequenceFocusProvider(
+                [focused_control, DummyControl("ButtonControl"), DummyControl("ButtonControl")]
+            ),
+            input_driver=driver,
+            chat_input_finder=SequenceChatInputFinder([None, recovered_control]),
+        )
+
+        sender.send_text(build_event(), "TEST-1")
+        sender.send_text(build_event(), "TEST-2")
+
+        self.assertEqual(
+            driver.sent,
+            [
+                (focused_control, "TEST-1"),
+                (recovered_control, "TEST-2"),
+            ],
+        )
 
 
 if __name__ == "__main__":
