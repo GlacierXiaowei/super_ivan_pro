@@ -32,15 +32,24 @@ class DummyFocusProvider:
 
 class DummyInputDriver:
     def __init__(self) -> None:
-        self.sent: list[str] = []
+        self.sent: list[tuple[object, str]] = []
 
     def send_text(self, control: object, text: str) -> bool:
-        self.sent.append(text)
+        self.sent.append((control, text))
         return True
 
 
 class DummyControl:
-    ControlTypeName = "EditControl"
+    def __init__(self, control_type: str = "EditControl") -> None:
+        self.ControlTypeName = control_type
+
+
+class DummyChatInputFinder:
+    def __init__(self, control: object | None) -> None:
+        self._control = control
+
+    def find_chat_input(self, window: WindowSnapshot) -> object | None:
+        return self._control
 
 
 def build_event() -> MessageEvent:
@@ -73,18 +82,50 @@ class CurrentChatSenderTest(unittest.TestCase):
 
     def test_sends_when_wechat_window_and_edit_focus_are_ready(self) -> None:
         driver = DummyInputDriver()
+        focused_control = DummyControl()
         sender = CurrentChatSender(
             logger=logging.getLogger("test"),
             window_inspector=DummyWindowInspector(
                 WindowSnapshot(hwnd=1, title="微信", class_name="WeChatMainWndForPC")
             ),
-            focus_provider=DummyFocusProvider(DummyControl()),
+            focus_provider=DummyFocusProvider(focused_control),
             input_driver=driver,
         )
 
         sender.send_text(build_event(), "TEST")
 
-        self.assertEqual(driver.sent, ["TEST"])
+        self.assertEqual(driver.sent, [(focused_control, "TEST")])
+
+    def test_auto_finds_chat_input_when_focus_is_not_editable(self) -> None:
+        driver = DummyInputDriver()
+        found_control = DummyControl()
+        sender = CurrentChatSender(
+            logger=logging.getLogger("test"),
+            window_inspector=DummyWindowInspector(
+                WindowSnapshot(hwnd=1, title="微信", class_name="WeChatMainWndForPC")
+            ),
+            focus_provider=DummyFocusProvider(DummyControl("ButtonControl")),
+            input_driver=driver,
+            chat_input_finder=DummyChatInputFinder(found_control),
+        )
+
+        sender.send_text(build_event(), "TEST")
+
+        self.assertEqual(driver.sent, [(found_control, "TEST")])
+
+    def test_fails_when_focus_is_not_editable_and_chat_input_cannot_be_found(self) -> None:
+        sender = CurrentChatSender(
+            logger=logging.getLogger("test"),
+            window_inspector=DummyWindowInspector(
+                WindowSnapshot(hwnd=1, title="微信", class_name="WeChatMainWndForPC")
+            ),
+            focus_provider=DummyFocusProvider(DummyControl("ButtonControl")),
+            input_driver=DummyInputDriver(),
+            chat_input_finder=DummyChatInputFinder(None),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "chat_input_not_found"):
+            sender.send_text(build_event(), "TEST")
 
 
 if __name__ == "__main__":
