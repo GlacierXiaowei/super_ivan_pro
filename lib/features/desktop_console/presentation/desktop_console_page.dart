@@ -1,0 +1,67 @@
+import 'package:flutter/material.dart';
+import 'package:super_ivan_pro/features/desktop_console/controller/desktop_console_controller.dart';
+import 'package:super_ivan_pro/features/desktop_console/data/desktop_service.dart';
+import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.dart';
+import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/events_panel.dart';
+import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/mode_panel.dart';
+import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/rule_panel.dart';
+import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/status_panel.dart';
+import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/target_panel.dart';
+
+class DesktopConsolePage extends StatefulWidget {
+  const DesktopConsolePage({super.key, required this.service});
+
+  final DesktopService service;
+
+  @override
+  State<DesktopConsolePage> createState() => _DesktopConsolePageState();
+}
+
+class _DesktopConsolePageState extends State<DesktopConsolePage> {
+  late final DesktopConsoleController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = DesktopConsoleController(widget.service);
+    controller.initialize();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final snapshot = controller.snapshot ?? DesktopSnapshot.seed();
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('微信自动化桌面端'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              StatusPanel(snapshot: snapshot),
+              const SizedBox(height: 16),
+              TargetPanel(snapshot: snapshot),
+              const SizedBox(height: 16),
+              RulePanel(snapshot: snapshot),
+              const SizedBox(height: 16),
+              ModePanel(
+                snapshot: snapshot,
+                onModeChanged: controller.setMode,
+              ),
+              const SizedBox(height: 16),
+              EventsPanel(snapshot: snapshot),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
