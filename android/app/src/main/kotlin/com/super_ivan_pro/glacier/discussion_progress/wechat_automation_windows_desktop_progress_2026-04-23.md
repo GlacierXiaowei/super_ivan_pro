@@ -54,6 +54,28 @@ Status: phase 1 in progress
 
 - `7abc8ec` `feat(glacier): add desktop service api skeleton`
 
+### 4. Flutter 已接入 live local service
+
+当前已经完成：
+
+1. 新增 `HttpDesktopService`
+2. 新增 `WindowsServiceLauncher`
+3. Flutter 默认启动路径已切到本地 HTTP service
+4. 服务状态区已增加：
+   - `启动服务`
+   - `停止服务`
+5. 控制器已支持：
+   - `startServices()`
+   - `stopServices()`
+   - busy 状态切换
+6. Python desktop service 已扩展：
+   - `POST /mode`
+   - `GET /status` 返回 `service_state = running`
+
+已提交：
+
+- `f8df5a5` `feat(glacier): wire desktop console to local service`
+
 ## 已验证结果
 
 ### Flutter
@@ -69,6 +91,10 @@ flutter analyze
 
 1. `flutter test` 通过
 2. `flutter analyze` 无报错
+3. 新增测试已覆盖：
+   - launcher 命令生成
+   - HTTP status / mode 请求
+   - controller 启停 busy 状态
 
 ### Python
 
@@ -80,31 +106,44 @@ python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glaci
 
 结果：
 
-1. `5/5` 通过
+1. `6/6` 通过
+
+### 本地服务烟雾验证
+
+已执行：
+
+```bash
+python android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/desktop_service.py --host 127.0.0.1 --port 18091 --runtime-root <temp>
+GET http://127.0.0.1:18091/status
+```
+
+结果：
+
+1. 脚本可正常启动本地 HTTP server
+2. `/status` 返回了有效 JSON
 
 ## 当前仍未完成
 
 这一轮还没有完成的关键点：
 
-1. Flutter 还没有真正切到 live HTTP service
-2. Flutter 还没有真正拉起和停止 Python 服务进程
-3. Python service 还没有扩展 `POST /mode`
-4. Python service 还没有扩展 arm/disarm、rules、recent events 等 API
-5. 还没有把 `wechat-decrypt` 和现有 bot 纳入统一托管
-6. 还没有做桌面安装包或 bundled python 分发
+1. Flutter 还没有把“监听对象输入”和“规则配置”真正保存到 live service
+2. Python service 还没有扩展 arm/disarm、rules、recent events 等 API
+3. 还没有把 `wechat-decrypt` 和现有 bot 纳入统一托管
+4. 还没有做桌面安装包或 bundled python 分发
 
 ## 建议的下一执行顺序
 
 下一步建议按这个顺序推进：
 
-1. 新增 `HttpDesktopService`
-2. 新增 `WindowsServiceLauncher`
-3. 让 Flutter 能启动/停止本地 Python service
-4. 扩展 Python service：
-   - `POST /mode`
+1. 让监听对象区真正调用 `saveTarget`
+2. 扩展 Python service：
    - `GET /events/recent`
-   - 后续再补 rules / arm / disarm
-5. 再把桌面 UI 从 fake service 切到 live service
+   - `POST /arm`
+   - `POST /disarm`
+   - `GET /rules`
+   - `POST /rules`
+3. 让规则区和 armed 状态区切到 live service
+4. 再把 `wechat-decrypt` 和 bot 进程纳入统一托管
 
 ## 重要边界
 
