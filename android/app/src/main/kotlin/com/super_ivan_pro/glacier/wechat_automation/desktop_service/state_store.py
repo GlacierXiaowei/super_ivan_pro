@@ -6,9 +6,10 @@ from typing import Any
 
 
 DEFAULT_STATE: dict[str, Any] = {
-    "service_state": "stopped",
+    "service_state": "running",
     "armed": False,
     "mode": "normal",
+    "rule_pattern": "",
     "active_target": {
         "talker": "",
         "display_name": "",
@@ -34,4 +35,3 @@ class DesktopStateStore:
             json.dumps(state, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-

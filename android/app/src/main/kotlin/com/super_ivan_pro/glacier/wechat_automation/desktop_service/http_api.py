@@ -26,6 +26,8 @@ class DesktopServiceApp:
         state = self._store.load()
 
         if normalized_method == "GET" and normalized_path == "/status":
+            state["service_state"] = "running"
+            self._store.save(state)
             return HTTPStatus.OK, state
 
         if normalized_method == "POST" and normalized_path == "/targets/active":
@@ -43,6 +45,19 @@ class DesktopServiceApp:
                 "display_name": str(body["display_name"]),
                 "is_group": bool(body["is_group"]),
             }
+            self._store.save(state)
+            return HTTPStatus.OK, state
+
+        if normalized_method == "POST" and normalized_path == "/mode":
+            body = payload if isinstance(payload, dict) else {}
+            mode = str(body.get("mode", "")).strip().lower()
+            if mode not in {"normal", "rapid"}:
+                return HTTPStatus.BAD_REQUEST, {
+                    "ok": False,
+                    "error": "mode must be normal or rapid",
+                }
+
+            state["mode"] = mode
             self._store.save(state)
             return HTTPStatus.OK, state
 
@@ -94,4 +109,3 @@ def create_http_server(
             self.wfile.write(encoded)
 
     return ThreadingHTTPServer((host, port), JsonHandler)
-

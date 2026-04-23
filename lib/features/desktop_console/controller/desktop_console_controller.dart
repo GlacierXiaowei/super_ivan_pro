@@ -7,6 +7,7 @@ class DesktopConsoleController extends ChangeNotifier {
 
   final DesktopService _service;
   DesktopSnapshot? snapshot;
+  bool isBusy = false;
 
   Future<void> initialize() async {
     snapshot = await _service.loadSnapshot();
@@ -31,5 +32,29 @@ class DesktopConsoleController extends ChangeNotifier {
   Future<void> setMode(DesktopMode mode) async {
     await _service.saveMode(mode);
     await initialize();
+  }
+
+  Future<void> startServices() async {
+    isBusy = true;
+    notifyListeners();
+    try {
+      await _service.startServices();
+      await initialize();
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopServices() async {
+    isBusy = true;
+    notifyListeners();
+    try {
+      await _service.stopServices();
+      await initialize();
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
   }
 }

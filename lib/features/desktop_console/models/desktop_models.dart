@@ -10,6 +10,14 @@ class ActiveTarget {
   final String displayName;
   final String talker;
   final bool isGroup;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'display_name': displayName,
+      'talker': talker,
+      'is_group': isGroup,
+    };
+  }
 }
 
 class RecentChatPreview {
@@ -47,7 +55,7 @@ class DesktopSnapshot {
 
   factory DesktopSnapshot.seed() {
     return const DesktopSnapshot(
-      serviceStatusLabel: '本地服务未启动',
+      serviceStatusLabel: 'running',
       activeTarget: ActiveTarget(
         displayName: '文件传输助手',
         talker: 'filehelper',
@@ -67,6 +75,52 @@ class DesktopSnapshot {
       armed: true,
       mode: DesktopMode.normal,
       rulePattern: 'START',
+    );
+  }
+
+  factory DesktopSnapshot.offline() {
+    return const DesktopSnapshot(
+      serviceStatusLabel: '本地服务未启动',
+      activeTarget: ActiveTarget(
+        displayName: '',
+        talker: '',
+        isGroup: false,
+      ),
+      recentChats: [],
+      recentEvents: [],
+      armed: false,
+      mode: DesktopMode.normal,
+      rulePattern: '',
+    );
+  }
+
+  factory DesktopSnapshot.fromJson(Map<String, dynamic> json) {
+    final activeTarget = (json['active_target'] as Map?)?.cast<String, dynamic>();
+    final recentEvents = (json['recent_events'] as List?)
+            ?.whereType<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .map(
+              (item) => RecentEventPreview(
+                chatName: item['chat_name'] as String? ?? '',
+                senderName: item['sender_name'] as String? ?? '',
+                content: item['content'] as String? ?? '',
+              ),
+            )
+            .toList() ??
+        const <RecentEventPreview>[];
+
+    return DesktopSnapshot(
+      serviceStatusLabel: json['service_state'] as String? ?? 'running',
+      activeTarget: ActiveTarget(
+        displayName: activeTarget?['display_name'] as String? ?? '',
+        talker: activeTarget?['talker'] as String? ?? '',
+        isGroup: activeTarget?['is_group'] as bool? ?? false,
+      ),
+      recentChats: const [],
+      recentEvents: recentEvents,
+      armed: json['armed'] as bool? ?? false,
+      mode: json['mode'] == 'rapid' ? DesktopMode.rapid : DesktopMode.normal,
+      rulePattern: json['rule_pattern'] as String? ?? '',
     );
   }
 

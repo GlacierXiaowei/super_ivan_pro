@@ -22,4 +22,14 @@ class FakeDesktopService implements DesktopService {
     lastSavedTarget = target;
     _snapshot = _snapshot.copyWith(activeTarget: target);
   }
+
+  @override
+  Future<void> startServices() async {
+    _snapshot = _snapshot.copyWith(serviceStatusLabel: 'running');
+  }
+
+  @override
+  Future<void> stopServices() async {
+    _snapshot = _snapshot.copyWith(serviceStatusLabel: '本地服务未启动');
+  }
 }

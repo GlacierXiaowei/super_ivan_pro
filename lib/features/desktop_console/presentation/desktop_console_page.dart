@@ -38,7 +38,7 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final snapshot = controller.snapshot ?? DesktopSnapshot.seed();
+        final snapshot = controller.snapshot ?? DesktopSnapshot.offline();
         return Scaffold(
           appBar: AppBar(
             title: const Text('微信自动化桌面端'),
@@ -46,7 +46,12 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
           body: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              StatusPanel(snapshot: snapshot),
+              StatusPanel(
+                snapshot: snapshot,
+                isBusy: controller.isBusy,
+                onStartPressed: controller.startServices,
+                onStopPressed: controller.stopServices,
+              ),
               const SizedBox(height: 16),
               TargetPanel(snapshot: snapshot),
               const SizedBox(height: 16),

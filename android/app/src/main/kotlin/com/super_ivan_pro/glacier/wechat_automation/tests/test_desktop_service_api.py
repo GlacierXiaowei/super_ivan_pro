@@ -21,6 +21,7 @@ class DesktopServiceApiTest(unittest.TestCase):
             status_code, status = app.handle_json("GET", "/status")
             self.assertEqual(status_code, 200)
             self.assertEqual(status["mode"], "normal")
+            self.assertEqual(status["service_state"], "running")
 
             status_code, updated = app.handle_json(
                 "POST",
@@ -37,6 +38,19 @@ class DesktopServiceApiTest(unittest.TestCase):
             status_code, latest = app.handle_json("GET", "/status")
             self.assertEqual(status_code, 200)
             self.assertEqual(latest["active_target"]["talker"], "filehelper")
+
+    def test_mode_update_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(runtime_root=Path(tmp))
+
+            status_code, updated = app.handle_json(
+                "POST",
+                "/mode",
+                {"mode": "rapid"},
+            )
+
+            self.assertEqual(status_code, 200)
+            self.assertEqual(updated["mode"], "rapid")
 
     def test_rejects_incomplete_target_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

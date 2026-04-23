@@ -4,4 +4,6 @@ abstract class DesktopService {
   Future<DesktopSnapshot> loadSnapshot();
   Future<void> saveTarget(ActiveTarget target);
   Future<void> saveMode(DesktopMode mode);
+  Future<void> startServices();
+  Future<void> stopServices();
 }
