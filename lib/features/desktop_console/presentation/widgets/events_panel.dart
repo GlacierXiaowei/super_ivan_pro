@@ -11,19 +11,21 @@ class EventsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return PanelCard(
       title: '日志与事件',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: snapshot.recentEvents
-            .map(
-              (event) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${event.chatName} / ${event.senderName}: ${event.content}',
-                ),
-              ),
-            )
-            .toList(),
-      ),
+      child: snapshot.recentEvents.isEmpty
+          ? const Text('暂无最近事件')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: snapshot.recentEvents
+                  .map(
+                    (event) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '${event.chatName} / ${event.senderName}: ${event.content}',
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
     );
   }
 }

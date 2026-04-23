@@ -4,7 +4,7 @@ import 'package:super_ivan_pro/features/desktop_console/data/fake_desktop_servic
 import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.dart';
 
 void main() {
-  test('saves the edited target and mode through the service', () async {
+  test('saves the edited target, rule, and mode through the service', () async {
     final service = FakeDesktopService.seed();
     final controller = DesktopConsoleController(service);
 
@@ -15,8 +15,29 @@ void main() {
       isGroup: true,
     );
     await controller.setMode(DesktopMode.rapid);
+    await controller.saveRule(
+      pattern: 'GO',
+      replies: ['第一条', '第二条'],
+      cooldownMs: 120,
+      maxTriggers: 3,
+    );
 
     expect(service.lastSavedTarget?.displayName, '多姆斯利普🌙');
     expect(service.lastSavedMode, DesktopMode.rapid);
+    expect(service.lastSavedRule?.pattern, 'GO');
+    expect(service.lastSavedArmState?.maxTriggers, 3);
+  });
+
+  test('arms and disarms through the service', () async {
+    final service = FakeDesktopService.seed();
+    final controller = DesktopConsoleController(service);
+
+    await controller.initialize();
+    await controller.setArmed(true, maxTriggers: 2);
+    expect(service.lastSavedArmState?.enabled, isTrue);
+    expect(service.lastSavedArmState?.maxTriggers, 2);
+
+    await controller.setArmed(false);
+    expect(service.lastSavedArmState?.enabled, isFalse);
   });
 }

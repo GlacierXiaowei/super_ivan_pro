@@ -15,10 +15,14 @@ void main() {
     expect(find.text('最近会话'), findsOneWidget);
     expect(find.text('手动输入监听对象'), findsOneWidget);
     expect(find.text('armed'), findsOneWidget);
+    expect(find.text('保存对象'), findsOneWidget);
+    expect(find.text('Arm'), findsOneWidget);
+    expect(find.text('Disarm'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
 
+    expect(find.text('保存规则'), findsOneWidget);
     expect(find.text('模式配置'), findsOneWidget);
   });
 }

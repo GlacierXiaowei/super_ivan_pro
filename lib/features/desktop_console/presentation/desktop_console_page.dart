@@ -51,11 +51,24 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
                 isBusy: controller.isBusy,
                 onStartPressed: controller.startServices,
                 onStopPressed: controller.stopServices,
+                onArmPressed: () => controller.setArmed(
+                  true,
+                  maxTriggers: snapshot.armState.maxTriggers,
+                ),
+                onDisarmPressed: () => controller.setArmed(false),
               ),
               const SizedBox(height: 16),
-              TargetPanel(snapshot: snapshot),
+              TargetPanel(
+                snapshot: snapshot,
+                isBusy: controller.isBusy,
+                onSaveTarget: controller.saveTarget,
+              ),
               const SizedBox(height: 16),
-              RulePanel(snapshot: snapshot),
+              RulePanel(
+                snapshot: snapshot,
+                isBusy: controller.isBusy,
+                onSaveRule: controller.saveRule,
+              ),
               const SizedBox(height: 16),
               ModePanel(
                 snapshot: snapshot,

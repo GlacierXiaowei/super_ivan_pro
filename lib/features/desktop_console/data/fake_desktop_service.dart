@@ -6,6 +6,8 @@ class FakeDesktopService implements DesktopService {
 
   DesktopSnapshot _snapshot;
   ActiveTarget? lastSavedTarget;
+  DesktopRule? lastSavedRule;
+  DesktopArmState? lastSavedArmState;
   DesktopMode lastSavedMode = DesktopMode.normal;
 
   @override
@@ -15,6 +17,18 @@ class FakeDesktopService implements DesktopService {
   Future<void> saveMode(DesktopMode mode) async {
     lastSavedMode = mode;
     _snapshot = _snapshot.copyWith(mode: mode);
+  }
+
+  @override
+  Future<void> saveRule(DesktopRule rule) async {
+    lastSavedRule = rule;
+    _snapshot = _snapshot.copyWith(rule: rule);
+  }
+
+  @override
+  Future<void> saveArmState(DesktopArmState state) async {
+    lastSavedArmState = state;
+    _snapshot = _snapshot.copyWith(armState: state);
   }
 
   @override
@@ -30,6 +44,6 @@ class FakeDesktopService implements DesktopService {
 
   @override
   Future<void> stopServices() async {
-    _snapshot = _snapshot.copyWith(serviceStatusLabel: '本地服务未启动');
+    _snapshot = _snapshot.copyWith(serviceStatusLabel: 'stopped');
   }
 }

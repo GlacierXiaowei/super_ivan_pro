@@ -1,5 +1,7 @@
 enum DesktopMode { normal, rapid }
 
+enum DesktopMatchMode { exact, contains, regex }
+
 class ActiveTarget {
   const ActiveTarget({
     required this.displayName,
@@ -17,6 +19,71 @@ class ActiveTarget {
       'talker': talker,
       'is_group': isGroup,
     };
+  }
+}
+
+class DesktopRule {
+  const DesktopRule({
+    required this.pattern,
+    required this.replies,
+    required this.cooldownMs,
+    this.matchMode = DesktopMatchMode.regex,
+    this.talker = '',
+    this.isGroup = false,
+  });
+
+  final String pattern;
+  final List<String> replies;
+  final int cooldownMs;
+  final DesktopMatchMode matchMode;
+  final String talker;
+  final bool isGroup;
+
+  Map<String, dynamic> toRulePayload() {
+    return {
+      'id': 'desktop_rule',
+      'enabled': true,
+      'talker': talker,
+      'sender': '',
+      'chat_scope': isGroup ? 'group' : 'private',
+      'type': 'text',
+      'pattern': pattern,
+      'replies': replies,
+      'cooldown_ms': cooldownMs,
+      'match_mode': matchMode.name,
+    };
+  }
+}
+
+class DesktopArmState {
+  const DesktopArmState({
+    required this.enabled,
+    required this.maxTriggers,
+    this.remainingTriggers,
+  });
+
+  final bool enabled;
+  final int maxTriggers;
+  final int? remainingTriggers;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'max_triggers': maxTriggers,
+      'remaining_triggers': remainingTriggers,
+    };
+  }
+
+  DesktopArmState copyWith({
+    bool? enabled,
+    int? maxTriggers,
+    int? remainingTriggers,
+  }) {
+    return DesktopArmState(
+      enabled: enabled ?? this.enabled,
+      maxTriggers: maxTriggers ?? this.maxTriggers,
+      remainingTriggers: remainingTriggers ?? this.remainingTriggers,
+    );
   }
 }
 
@@ -48,9 +115,9 @@ class DesktopSnapshot {
     required this.activeTarget,
     required this.recentChats,
     required this.recentEvents,
-    required this.armed,
     required this.mode,
-    required this.rulePattern,
+    required this.rule,
+    required this.armState,
   });
 
   factory DesktopSnapshot.seed() {
@@ -72,9 +139,17 @@ class DesktopSnapshot {
           content: 'START',
         ),
       ],
-      armed: true,
       mode: DesktopMode.normal,
-      rulePattern: 'START',
+      rule: DesktopRule(
+        pattern: 'START',
+        replies: ['TEST', '第二条'],
+        cooldownMs: 800,
+      ),
+      armState: DesktopArmState(
+        enabled: true,
+        maxTriggers: 1,
+        remainingTriggers: 1,
+      ),
     );
   }
 
@@ -88,26 +163,49 @@ class DesktopSnapshot {
       ),
       recentChats: [],
       recentEvents: [],
-      armed: false,
       mode: DesktopMode.normal,
-      rulePattern: '',
+      rule: DesktopRule(
+        pattern: '',
+        replies: [],
+        cooldownMs: 0,
+      ),
+      armState: DesktopArmState(
+        enabled: false,
+        maxTriggers: 1,
+        remainingTriggers: 1,
+      ),
     );
   }
 
   factory DesktopSnapshot.fromJson(Map<String, dynamic> json) {
     final activeTarget = (json['active_target'] as Map?)?.cast<String, dynamic>();
-    final recentEvents = (json['recent_events'] as List?)
-            ?.whereType<Map>()
-            .map((item) => item.cast<String, dynamic>())
-            .map(
-              (item) => RecentEventPreview(
-                chatName: item['chat_name'] as String? ?? '',
-                senderName: item['sender_name'] as String? ?? '',
-                content: item['content'] as String? ?? '',
-              ),
-            )
-            .toList() ??
-        const <RecentEventPreview>[];
+    final recentEvents = ((json['recent_events'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .map(
+          (item) => RecentEventPreview(
+            chatName:
+                item['chat_name'] as String? ??
+                item['talker_name'] as String? ??
+                '',
+            senderName: item['sender_name'] as String? ?? '',
+            content: item['content'] as String? ?? '',
+          ),
+        )
+        .toList();
+    final recentChats = ((json['recent_chats'] as List?) ?? const [])
+        .map((item) {
+          if (item is Map) {
+            final payload = item.cast<String, dynamic>();
+            return RecentChatPreview(
+              label: payload['label'] as String? ?? '',
+              talker: payload['talker'] as String? ?? '',
+            );
+          }
+          final label = '$item';
+          return RecentChatPreview(label: label, talker: label);
+        })
+        .toList();
 
     return DesktopSnapshot(
       serviceStatusLabel: json['service_state'] as String? ?? 'running',
@@ -116,11 +214,22 @@ class DesktopSnapshot {
         talker: activeTarget?['talker'] as String? ?? '',
         isGroup: activeTarget?['is_group'] as bool? ?? false,
       ),
-      recentChats: const [],
+      recentChats: recentChats,
       recentEvents: recentEvents,
-      armed: json['armed'] as bool? ?? false,
       mode: json['mode'] == 'rapid' ? DesktopMode.rapid : DesktopMode.normal,
-      rulePattern: json['rule_pattern'] as String? ?? '',
+      rule: DesktopRule(
+        pattern: json['rule_pattern'] as String? ?? '',
+        replies: ((json['replies'] as List?) ?? const [])
+            .map((item) => '$item')
+            .toList(),
+        cooldownMs: json['cooldown_ms'] as int? ?? 0,
+        matchMode: _parseMatchMode(json['match_mode'] as String?),
+      ),
+      armState: DesktopArmState(
+        enabled: json['armed'] as bool? ?? false,
+        maxTriggers: json['max_triggers'] as int? ?? 1,
+        remainingTriggers: json['remaining_triggers'] as int?,
+      ),
     );
   }
 
@@ -128,27 +237,35 @@ class DesktopSnapshot {
   final ActiveTarget activeTarget;
   final List<RecentChatPreview> recentChats;
   final List<RecentEventPreview> recentEvents;
-  final bool armed;
   final DesktopMode mode;
-  final String rulePattern;
+  final DesktopRule rule;
+  final DesktopArmState armState;
 
   DesktopSnapshot copyWith({
     String? serviceStatusLabel,
     ActiveTarget? activeTarget,
     List<RecentChatPreview>? recentChats,
     List<RecentEventPreview>? recentEvents,
-    bool? armed,
     DesktopMode? mode,
-    String? rulePattern,
+    DesktopRule? rule,
+    DesktopArmState? armState,
   }) {
     return DesktopSnapshot(
       serviceStatusLabel: serviceStatusLabel ?? this.serviceStatusLabel,
       activeTarget: activeTarget ?? this.activeTarget,
       recentChats: recentChats ?? this.recentChats,
       recentEvents: recentEvents ?? this.recentEvents,
-      armed: armed ?? this.armed,
       mode: mode ?? this.mode,
-      rulePattern: rulePattern ?? this.rulePattern,
+      rule: rule ?? this.rule,
+      armState: armState ?? this.armState,
     );
+  }
+
+  static DesktopMatchMode _parseMatchMode(String? value) {
+    return switch (value) {
+      'exact' => DesktopMatchMode.exact,
+      'contains' => DesktopMatchMode.contains,
+      _ => DesktopMatchMode.regex,
+    };
   }
 }

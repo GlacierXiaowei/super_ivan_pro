@@ -28,6 +28,34 @@ class WindowsServiceLauncher {
 
   Process? _process;
 
+  static String resolveWorkspaceRoot() {
+    final env = Platform.environment['SUPER_IVAN_WORKSPACE_ROOT'];
+    if (env != null && env.trim().isNotEmpty) {
+      return env;
+    }
+
+    final candidates = <Directory>[
+      Directory.current,
+      File(Platform.resolvedExecutable).parent,
+    ];
+    for (final seed in candidates) {
+      for (
+        Directory? current = seed;
+        current != null;
+        current = current.parent == current ? null : current.parent
+      ) {
+        final marker = File(
+          '${current.path}/android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/desktop_service.py',
+        );
+        if (marker.existsSync()) {
+          return current.path;
+        }
+      }
+    }
+
+    return Directory.current.path;
+  }
+
   LaunchCommand buildStartCommand() {
     final scriptPath =
         '$workspaceRoot/android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/desktop_service.py';

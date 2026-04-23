@@ -21,6 +21,9 @@ void main() {
               'armed': true,
               'mode': 'rapid',
               'rule_pattern': 'START',
+              'replies': ['TEST', '第二条'],
+              'cooldown_ms': 800,
+              'match_mode': 'regex',
               'active_target': {
                 'display_name': '文件传输助手',
                 'talker': 'filehelper',
@@ -28,7 +31,7 @@ void main() {
               },
               'recent_events': [
                 {
-                  'chat_name': '文件传输助手',
+                  'talker_name': '文件传输助手',
                   'sender_name': '我',
                   'content': 'START',
                 },
@@ -51,6 +54,9 @@ void main() {
     expect(snapshot.serviceStatusLabel, 'running');
     expect(snapshot.mode, DesktopMode.rapid);
     expect(snapshot.activeTarget.displayName, '文件传输助手');
+    expect(snapshot.rule.replies, ['TEST', '第二条']);
+    expect(snapshot.rule.cooldownMs, 800);
+    expect(snapshot.recentEvents.single.chatName, '文件传输助手');
   });
 
   test('posts mode updates to the local service', () async {
@@ -80,5 +86,49 @@ void main() {
     await service.saveMode(DesktopMode.rapid);
 
     expect(body, contains('"mode":"rapid"'));
+  });
+
+  test('posts rule and arm state updates to the local service', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    final receivedBodies = <String>[];
+    server.listen((request) async {
+      if (request.method == 'POST' &&
+          (request.uri.path == '/rules' || request.uri.path == '/arm-state')) {
+        receivedBodies.add(await utf8.decoder.bind(request).join());
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write('{}');
+        await request.response.close();
+        return;
+      }
+
+      request.response.statusCode = 404;
+      await request.response.close();
+    });
+
+    final service = HttpDesktopService(
+      Uri.parse('http://${server.address.address}:${server.port}'),
+    );
+
+    await service.saveRule(
+      DesktopRule(
+        pattern: 'START',
+        replies: ['TEST', '第二条'],
+        cooldownMs: 800,
+      ),
+    );
+    await service.saveArmState(
+      const DesktopArmState(
+        enabled: true,
+        maxTriggers: 1,
+        remainingTriggers: 1,
+      ),
+    );
+
+    expect(receivedBodies[0], contains('"pattern":"START"'));
+    expect(receivedBodies[1], contains('"enabled":true'));
   });
 }

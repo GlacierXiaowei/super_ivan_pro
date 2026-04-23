@@ -9,12 +9,16 @@ class StatusPanel extends StatelessWidget {
     required this.isBusy,
     required this.onStartPressed,
     required this.onStopPressed,
+    required this.onArmPressed,
+    required this.onDisarmPressed,
   });
 
   final DesktopSnapshot snapshot;
   final bool isBusy;
   final Future<void> Function() onStartPressed;
   final Future<void> Function() onStopPressed;
+  final Future<void> Function() onArmPressed;
+  final Future<void> Function() onDisarmPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +33,15 @@ class StatusPanel extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Chip(label: Text(snapshot.serviceStatusLabel)),
-              Chip(label: Text(snapshot.armed ? 'armed' : 'disarmed')),
+              Chip(label: Text(snapshot.armState.enabled ? 'armed' : 'disarmed')),
               Chip(
                 label: Text(
                   snapshot.mode == DesktopMode.rapid ? '极速模式' : '普通模式',
+                ),
+              ),
+              Chip(
+                label: Text(
+                  '剩余触发: ${snapshot.armState.remainingTriggers ?? snapshot.armState.maxTriggers}',
                 ),
               ),
             ],
@@ -49,6 +58,14 @@ class StatusPanel extends StatelessWidget {
               OutlinedButton(
                 onPressed: isBusy ? null : () => onStopPressed(),
                 child: const Text('停止服务'),
+              ),
+              FilledButton.tonal(
+                onPressed: isBusy ? null : () => onArmPressed(),
+                child: const Text('Arm'),
+              ),
+              OutlinedButton(
+                onPressed: isBusy ? null : () => onDisarmPressed(),
+                child: const Text('Disarm'),
               ),
             ],
           ),

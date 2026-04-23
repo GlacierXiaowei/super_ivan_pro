@@ -20,7 +20,7 @@ class HttpDesktopService implements DesktopService {
     return HttpDesktopService(
       Uri.parse('http://$host:$port'),
       launcher: WindowsServiceLauncher(
-        workspaceRoot: Directory.current.path,
+        workspaceRoot: WindowsServiceLauncher.resolveWorkspaceRoot(),
         pythonExecutable:
             Platform.environment['SUPER_IVAN_DESKTOP_PYTHON'] ?? 'python',
         host: host,
@@ -39,7 +39,13 @@ class HttpDesktopService implements DesktopService {
       final payload = await _requestJson('GET', '/status');
       return DesktopSnapshot.fromJson(payload);
     } on SocketException {
-      return DesktopSnapshot.offline();
+      if (_launcher == null) {
+        return DesktopSnapshot.offline();
+      }
+      await _launcher.start();
+      await _waitUntilAvailable();
+      final payload = await _requestJson('GET', '/status');
+      return DesktopSnapshot.fromJson(payload);
     } on HttpException {
       return DesktopSnapshot.offline();
     }
@@ -47,28 +53,55 @@ class HttpDesktopService implements DesktopService {
 
   @override
   Future<void> saveTarget(ActiveTarget target) async {
+    await _ensureServerRunning();
     await _requestJson('POST', '/targets/active', body: target.toJson());
   }
 
   @override
+  Future<void> saveRule(DesktopRule rule) async {
+    await _ensureServerRunning();
+    await _requestJson('POST', '/rules', body: {'rules': [rule.toRulePayload()]});
+  }
+
+  @override
+  Future<void> saveArmState(DesktopArmState state) async {
+    await _ensureServerRunning();
+    await _requestJson('POST', '/arm-state', body: state.toJson());
+  }
+
+  @override
   Future<void> saveMode(DesktopMode mode) async {
+    await _ensureServerRunning();
     await _requestJson('POST', '/mode', body: {'mode': mode.name});
   }
 
   @override
   Future<void> startServices() async {
-    final launcher = _launcher;
-    if (launcher == null) {
-      return;
-    }
-
-    await launcher.start();
-    await _waitUntilAvailable();
+    await _ensureServerRunning();
+    await _requestJson('POST', '/services/start');
   }
 
   @override
   Future<void> stopServices() async {
-    await _launcher?.stop();
+    await _ensureServerRunning();
+    await _requestJson('POST', '/services/stop');
+  }
+
+  Future<void> _ensureServerRunning() async {
+    try {
+      await _requestJson('GET', '/status');
+    } on SocketException {
+      final launcher = _launcher;
+      if (launcher == null) {
+        rethrow;
+      }
+      await launcher.start();
+      await _waitUntilAvailable();
+    } on HttpException {
+      if (_launcher == null) {
+        return;
+      }
+    }
   }
 
   Future<void> _waitUntilAvailable() async {

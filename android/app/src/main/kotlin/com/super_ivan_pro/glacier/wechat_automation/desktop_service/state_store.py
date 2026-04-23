@@ -6,7 +6,7 @@ from typing import Any
 
 
 DEFAULT_STATE: dict[str, Any] = {
-    "service_state": "running",
+    "service_state": "stopped",
     "armed": False,
     "mode": "normal",
     "rule_pattern": "",
@@ -16,6 +16,9 @@ DEFAULT_STATE: dict[str, Any] = {
         "is_group": False,
     },
     "recent_events": [],
+    "recent_chats": [],
+    "max_triggers": 1,
+    "remaining_triggers": 1,
 }
 
 

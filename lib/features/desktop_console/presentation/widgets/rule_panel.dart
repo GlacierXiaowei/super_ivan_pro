@@ -2,10 +2,68 @@ import 'package:flutter/material.dart';
 import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.dart';
 import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/panel_card.dart';
 
-class RulePanel extends StatelessWidget {
-  const RulePanel({super.key, required this.snapshot});
+class RulePanel extends StatefulWidget {
+  const RulePanel({
+    super.key,
+    required this.snapshot,
+    required this.isBusy,
+    required this.onSaveRule,
+  });
 
   final DesktopSnapshot snapshot;
+  final bool isBusy;
+  final Future<void> Function({
+    required String pattern,
+    required List<String> replies,
+    required int cooldownMs,
+    required int maxTriggers,
+  })
+  onSaveRule;
+
+  @override
+  State<RulePanel> createState() => _RulePanelState();
+}
+
+class _RulePanelState extends State<RulePanel> {
+  late final TextEditingController _patternController;
+  late final TextEditingController _repliesController;
+  late final TextEditingController _cooldownController;
+  late final TextEditingController _maxTriggersController;
+
+  @override
+  void initState() {
+    super.initState();
+    _patternController = TextEditingController();
+    _repliesController = TextEditingController();
+    _cooldownController = TextEditingController();
+    _maxTriggersController = TextEditingController();
+    _syncFromSnapshot();
+  }
+
+  @override
+  void didUpdateWidget(covariant RulePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot.rule.pattern != widget.snapshot.rule.pattern ||
+        oldWidget.snapshot.armState.maxTriggers != widget.snapshot.armState.maxTriggers) {
+      _syncFromSnapshot();
+    }
+  }
+
+  void _syncFromSnapshot() {
+    _patternController.text = widget.snapshot.rule.pattern;
+    _repliesController.text = widget.snapshot.rule.replies.join('\n');
+    _cooldownController.text = '${widget.snapshot.rule.cooldownMs}';
+    _maxTriggersController.text = '${widget.snapshot.armState.maxTriggers}';
+  }
+
+  @override
+  void dispose() {
+    _patternController.dispose();
+    _repliesController.dispose();
+    _cooldownController.dispose();
+    _maxTriggersController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,11 +72,73 @@ class RulePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('触发文本：${snapshot.rulePattern}'),
-          const SizedBox(height: 8),
+          TextField(
+            controller: _patternController,
+            enabled: !widget.isBusy,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: '触发文本',
+            ),
+          ),
+          const SizedBox(height: 12),
           const Text('匹配方式：精确 / 包含 / 正则'),
-          const SizedBox(height: 8),
-          const Text('回复消息：TEST / 第二条'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _repliesController,
+            enabled: !widget.isBusy,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: '回复消息，每行一条',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cooldownController,
+                  enabled: !widget.isBusy,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: '冷却毫秒',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _maxTriggersController,
+                  enabled: !widget.isBusy,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: '最大触发次数',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: widget.isBusy
+                  ? null
+                  : () => widget.onSaveRule(
+                        pattern: _patternController.text.trim(),
+                        replies: _repliesController.text
+                            .split('\n')
+                            .map((line) => line.trim())
+                            .where((line) => line.isNotEmpty)
+                            .toList(),
+                        cooldownMs: int.tryParse(_cooldownController.text.trim()) ?? 0,
+                        maxTriggers: int.tryParse(_maxTriggersController.text.trim()) ?? 1,
+                      ),
+              child: const Text('保存规则'),
+            ),
+          ),
         ],
       ),
     );

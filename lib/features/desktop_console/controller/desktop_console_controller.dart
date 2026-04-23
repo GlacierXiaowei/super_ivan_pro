@@ -19,39 +19,86 @@ class DesktopConsoleController extends ChangeNotifier {
     required String talker,
     required bool isGroup,
   }) async {
-    await _service.saveTarget(
-      ActiveTarget(
-        displayName: displayName,
-        talker: talker,
-        isGroup: isGroup,
-      ),
-    );
-    await initialize();
+    await _runBusy(() async {
+      await _service.saveTarget(
+        ActiveTarget(
+          displayName: displayName,
+          talker: talker,
+          isGroup: isGroup,
+        ),
+      );
+      await initialize();
+    });
+  }
+
+  Future<void> saveRule({
+    required String pattern,
+    required List<String> replies,
+    required int cooldownMs,
+    required int maxTriggers,
+  }) async {
+    await _runBusy(() async {
+      await _service.saveRule(
+        DesktopRule(
+          pattern: pattern,
+          replies: replies,
+          cooldownMs: cooldownMs,
+          talker: snapshot?.activeTarget.talker ?? '',
+          isGroup: snapshot?.activeTarget.isGroup ?? false,
+        ),
+      );
+      final currentArmState = snapshot?.armState ?? DesktopSnapshot.seed().armState;
+      await _service.saveArmState(
+        currentArmState.copyWith(
+          maxTriggers: maxTriggers,
+          remainingTriggers: maxTriggers,
+        ),
+      );
+      await initialize();
+    });
+  }
+
+  Future<void> setArmed(bool enabled, {int? maxTriggers}) async {
+    await _runBusy(() async {
+      final currentArmState = snapshot?.armState ?? DesktopSnapshot.seed().armState;
+      final nextMaxTriggers = maxTriggers ?? currentArmState.maxTriggers;
+      await _service.saveArmState(
+        currentArmState.copyWith(
+          enabled: enabled,
+          maxTriggers: nextMaxTriggers,
+          remainingTriggers: nextMaxTriggers,
+        ),
+      );
+      await initialize();
+    });
   }
 
   Future<void> setMode(DesktopMode mode) async {
-    await _service.saveMode(mode);
-    await initialize();
+    await _runBusy(() async {
+      await _service.saveMode(mode);
+      await initialize();
+    });
   }
 
   Future<void> startServices() async {
-    isBusy = true;
-    notifyListeners();
-    try {
+    await _runBusy(() async {
       await _service.startServices();
       await initialize();
-    } finally {
-      isBusy = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<void> stopServices() async {
+    await _runBusy(() async {
+      await _service.stopServices();
+      await initialize();
+    });
+  }
+
+  Future<void> _runBusy(Future<void> Function() action) async {
     isBusy = true;
     notifyListeners();
     try {
-      await _service.stopServices();
-      await initialize();
+      await action();
     } finally {
       isBusy = false;
       notifyListeners();
