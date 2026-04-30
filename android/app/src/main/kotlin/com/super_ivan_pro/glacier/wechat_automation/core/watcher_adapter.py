@@ -37,6 +37,7 @@ class WechatDecryptHistoryWatcher:
         self._history_limit = max(runtime.history_limit, 10)
         self._since_timestamp = 0
         self._seen_keys: set[str] = set()
+        self._bootstrapped = False
 
     def iter_events(self) -> Iterator[MessageEvent]:
         while True:
@@ -58,6 +59,8 @@ class WechatDecryptHistoryWatcher:
             time.sleep(self._poll_interval_sec)
 
     def _fetch_events(self) -> list[dict]:
+        if not self._bootstrapped:
+            self._prime_since_timestamp()
         payload = self._fetch_history(
             {
                 "since": str(self._since_timestamp),
@@ -70,6 +73,15 @@ class WechatDecryptHistoryWatcher:
             latest_ts = max(int(item.get("timestamp", 0) or 0) for item in payload)
             self._since_timestamp = max(self._since_timestamp, latest_ts)
         return [item for item in payload if isinstance(item, dict)]
+
+    def _prime_since_timestamp(self) -> None:
+        payload = self._fetch_history({"limit": "1"})
+        self._bootstrapped = True
+        if not isinstance(payload, list) or not payload:
+            return
+
+        latest_ts = max(int(item.get("timestamp", 0) or 0) for item in payload if isinstance(item, dict))
+        self._since_timestamp = max(self._since_timestamp, latest_ts)
 
     def fetch_recent_events(self, limit: int = 50, chat: str = "") -> list[MessageEvent]:
         params = {

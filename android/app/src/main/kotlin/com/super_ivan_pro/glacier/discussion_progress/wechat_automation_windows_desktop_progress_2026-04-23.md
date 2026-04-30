@@ -220,3 +220,41 @@ flutter doctor -v
 2. `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/rules.local.json`
 
 本轮也没有覆盖用户手改过的设计文档内容。
+
+---
+
+## 2026-04-30 追加进展
+
+### 本轮定位到的真实现象
+
+1. “监听指定窗口后发送关键词没成功”在这一轮不是 matcher 再次失效。
+2. 当时桌面 HTTP 服务是活着的，但它内部托管的 `run_bot.py` 已经不在运行。
+3. 在这种状态下，页面仍然能显示历史消息和当前配置，但不会继续消费新消息，因此发出 `START` 不会触发回复。
+
+### 本轮新增修复
+
+1. 已补 watcher 冷启动保护：
+   - `WechatDecryptHistoryWatcher` 首次进入 live 轮询时，先把 `since_timestamp` 预热到“当前最新消息”。
+   - 这样重新启动 bot 时不会把启动前已经存在的旧消息重新当作新消息处理。
+2. 已新增回归测试覆盖这个场景：
+   - 冷启动时跳过旧历史
+   - 只处理启动之后到达的新消息
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_live_watcher_cold_start.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+```
+
+结果：
+
+1. 新增冷启动回归测试先红后绿。
+2. 当前 Python 测试总计 `28/28` 通过。
+
+### 当前测试注意事项
+
+1. 现在如果页面上 `服务状态` 显示 `stopped`，说明 live bot 没在运行；这时仅仅保存监听对象和规则还不够，仍需要显式启动 bot。
+2. 因为冷启动回放旧消息的问题已经修掉，后续重新启动 live bot 时，误扫旧 `START` 的风险已显著下降。
