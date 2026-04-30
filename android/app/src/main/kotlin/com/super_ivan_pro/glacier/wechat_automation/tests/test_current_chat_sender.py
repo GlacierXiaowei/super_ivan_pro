@@ -10,7 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.current_chat_sender import CurrentChatSender, WindowSnapshot  # noqa: E402
+from core.current_chat_sender import (  # noqa: E402
+    CurrentChatSender,
+    FastClipboardInputDriver,
+    WindowSnapshot,
+)
 from core.models import MessageEvent, MessageType  # noqa: E402
 
 
@@ -173,6 +177,43 @@ class CurrentChatSenderTest(unittest.TestCase):
             [
                 (focused_control, "TEST-1"),
                 (recovered_control, "TEST-2"),
+            ],
+        )
+
+    def test_strict_focus_mode_fails_without_editable_focus(self) -> None:
+        sender = CurrentChatSender(
+            logger=logging.getLogger("test"),
+            window_inspector=DummyWindowInspector(
+                WindowSnapshot(hwnd=1, title="微信", class_name="WeChatMainWndForPC")
+            ),
+            focus_provider=DummyFocusProvider(DummyControl("ButtonControl")),
+            input_driver=DummyInputDriver(),
+            chat_input_finder=DummyChatInputFinder(DummyControl()),
+            require_focused_edit=True,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "chat_input_not_focused"):
+            sender.send_text(build_event(), "TEST")
+
+    def test_fast_clipboard_driver_uses_direct_hotkeys(self) -> None:
+        actions: list[str] = []
+        driver = FastClipboardInputDriver(
+            logger=logging.getLogger("test"),
+            clipboard_setter=lambda text: actions.append(f"clipboard:{text}") or True,
+            key_sender=lambda action: actions.append(action),
+        )
+
+        sent = driver.send_text(DummyControl(), "TEST")
+
+        self.assertTrue(sent)
+        self.assertEqual(
+            actions,
+            [
+                "clipboard:TEST",
+                "ctrl+a",
+                "delete",
+                "ctrl+v",
+                "enter",
             ],
         )
 

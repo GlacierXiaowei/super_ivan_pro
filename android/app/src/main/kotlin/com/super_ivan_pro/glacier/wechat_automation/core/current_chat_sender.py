@@ -4,7 +4,7 @@ import ctypes
 import logging
 import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .models import MessageEvent
 
@@ -78,6 +78,77 @@ class Wx4pyInputDriver:
         )
 
 
+class FastClipboardInputDriver:
+    def __init__(
+        self,
+        logger: logging.Logger,
+        clipboard_setter: Callable[[str], bool] | None = None,
+        key_sender: Callable[[str], None] | None = None,
+        sleeper: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._logger = logger
+        self._clipboard_setter = clipboard_setter or self._set_clipboard_text
+        self._key_sender = key_sender or self._send_key_action
+        self._sleeper = sleeper
+
+    def send_text(self, control: object, text: str) -> bool:
+        if control is None:
+            return False
+        try:
+            if not self._clipboard_setter(text):
+                self._logger.error("fast_clipboard_set_failed")
+                return False
+            self._key_sender("ctrl+a")
+            self._key_sender("delete")
+            self._key_sender("ctrl+v")
+            self._key_sender("enter")
+            return True
+        except Exception:
+            self._logger.exception("fast_current_chat_send_failed")
+            return False
+
+    @staticmethod
+    def _set_clipboard_text(text: str) -> bool:
+        from wx4py.utils.clipboard_utils import set_text_to_clipboard
+
+        return bool(set_text_to_clipboard(text))
+
+    def _send_key_action(self, action: str) -> None:
+        import win32con
+
+        if action == "ctrl+a":
+            self._send_ctrl_hotkey(ord("A"))
+            return
+        if action == "ctrl+v":
+            self._send_ctrl_hotkey(0x56)
+            return
+        if action == "delete":
+            self._tap_key(win32con.VK_DELETE)
+            return
+        if action == "enter":
+            self._tap_key(win32con.VK_RETURN)
+            return
+        raise ValueError(f"unsupported key action: {action}")
+
+    def _send_ctrl_hotkey(self, key_code: int) -> None:
+        import win32api
+        import win32con
+
+        win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
+        self._sleeper(0.005)
+        self._tap_key(key_code)
+        self._sleeper(0.005)
+        win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+    def _tap_key(self, key_code: int) -> None:
+        import win32api
+        import win32con
+
+        win32api.keybd_event(key_code, 0, 0, 0)
+        self._sleeper(0.005)
+        win32api.keybd_event(key_code, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
 class Wx4pyChatInputFinder:
     def find_chat_input(self, window: WindowSnapshot) -> object | None:
         from wx4py.core import uiautomation as auto
@@ -146,12 +217,14 @@ class CurrentChatSender:
         focus_provider: FocusProvider | None = None,
         input_driver: InputDriver | None = None,
         chat_input_finder: ChatInputFinder | None = None,
+        require_focused_edit: bool = False,
     ) -> None:
         self._logger = logger
         self._window_inspector = window_inspector or Win32WindowInspector()
         self._focus_provider = focus_provider or Wx4pyFocusProvider()
         self._input_driver = input_driver or Wx4pyInputDriver(logger)
         self._chat_input_finder = chat_input_finder or Wx4pyChatInputFinder()
+        self._require_focused_edit = require_focused_edit
 
     @staticmethod
     def _is_editable_control(control: object | None) -> bool:
@@ -161,6 +234,12 @@ class CurrentChatSender:
         return control_type in {"EditControl", "DocumentControl"}
 
     def _resolve_chat_input(self, window: WindowSnapshot) -> object:
+        if self._require_focused_edit:
+            control = self._focus_provider.get_focused_control()
+            if self._is_editable_control(control):
+                return control
+            raise RuntimeError("chat_input_not_focused")
+
         saw_focus_control = False
         attempts = max(self.INPUT_LOOKUP_ATTEMPTS, 1)
 

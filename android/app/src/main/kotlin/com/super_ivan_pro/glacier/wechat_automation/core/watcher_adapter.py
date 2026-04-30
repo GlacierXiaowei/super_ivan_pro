@@ -33,7 +33,7 @@ class JsonlReplayWatcher:
 class WechatDecryptHistoryWatcher:
     def __init__(self, runtime: RuntimeConfig) -> None:
         self._base_url = runtime.watcher_url.rstrip("/")
-        self._poll_interval_sec = max(runtime.poll_interval_ms, 50) / 1000.0
+        self._poll_interval_sec = max(runtime.poll_interval_ms, 20) / 1000.0
         self._history_limit = max(runtime.history_limit, 10)
         self._since_timestamp = 0
         self._seen_keys: set[str] = set()

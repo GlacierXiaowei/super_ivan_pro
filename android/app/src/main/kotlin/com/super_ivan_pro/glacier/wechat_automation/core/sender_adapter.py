@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
-from .current_chat_sender import CurrentChatSender
+from .current_chat_sender import CurrentChatSender, FastClipboardInputDriver
 from .models import MessageEvent, RuntimeConfig
 
 
@@ -56,6 +56,12 @@ def create_sender(runtime: RuntimeConfig, logger: logging.Logger) -> Sender:
     if runtime.dry_run or backend == "dry_run":
         return DryRunSender(logger)
     if backend == "current_chat":
+        if runtime.current_chat_fast_send:
+            return CurrentChatSender(
+                logger,
+                input_driver=FastClipboardInputDriver(logger),
+                require_focused_edit=True,
+            )
         return CurrentChatSender(logger)
     if backend == "wx4py":
         return Wx4pySender(logger)

@@ -18,6 +18,24 @@ from .config_paths import ensure_runtime_files, resolve_repo_root, resolve_runti
 from .state_store import DesktopStateStore
 
 
+RUNTIME_MODE_PROFILES: dict[str, dict[str, Any]] = {
+    "normal": {
+        "poll_interval_ms": 300,
+        "history_limit": 200,
+        "inter_message_delay_ms": 180,
+        "retry_count": 1,
+        "current_chat_fast_send": False,
+    },
+    "rapid": {
+        "poll_interval_ms": 20,
+        "history_limit": 50,
+        "inter_message_delay_ms": 0,
+        "retry_count": 0,
+        "current_chat_fast_send": True,
+    },
+}
+
+
 def _event_to_payload(event: MessageEvent) -> dict[str, object]:
     return {
         "seq": event.seq,
@@ -154,6 +172,7 @@ class DesktopServiceApp:
             return HTTPStatus.OK, self._build_status(limit=20)
 
         if normalized_method == "POST" and normalized_path == "/services/start":
+            self._apply_runtime_mode_profile(str(self._store.load().get("mode", "normal")))
             self._process_manager.start(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
@@ -244,6 +263,9 @@ class DesktopServiceApp:
             state = self._store.load()
             state["mode"] = mode
             self._store.save(state)
+            self._apply_runtime_mode_profile(mode)
+            if self._process_manager.is_running():
+                self._process_manager.restart(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
         return HTTPStatus.NOT_FOUND, {"ok": False, "error": "route not found"}
@@ -307,6 +329,21 @@ class DesktopServiceApp:
 
         self._rules_path.write_text(
             json.dumps(rules, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _apply_runtime_mode_profile(self, mode: str) -> None:
+        profile = RUNTIME_MODE_PROFILES.get(mode, RUNTIME_MODE_PROFILES["normal"])
+        try:
+            payload = json.loads(self._runtime_config_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                payload = {}
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+
+        payload.update(profile)
+        self._runtime_config_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 

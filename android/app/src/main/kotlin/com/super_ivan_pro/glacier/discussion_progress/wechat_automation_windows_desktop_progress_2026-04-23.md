@@ -258,3 +258,47 @@ python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glaci
 
 1. 现在如果页面上 `服务状态` 显示 `stopped`，说明 live bot 没在运行；这时仅仅保存监听对象和规则还不够，仍需要显式启动 bot。
 2. 因为冷启动回放旧消息的问题已经修掉，后续重新启动 live bot 时，误扫旧 `START` 的风险已显著下降。
+
+---
+
+## 2026-04-30 极速模式修正
+
+### 本轮定位到的真实现象
+
+1. 真实发送已经成功，但从 `rule_match` 到第一条 `current_chat_send` 大约有 3-4 秒。
+2. 当时页面状态显示 `mode = rapid`，但 runtime 仍是：
+   - `poll_interval_ms = 300`
+   - `inter_message_delay_ms = 180`
+3. 这说明之前的“极速模式”只保存到了桌面状态，没有真正写入 live bot 使用的 runtime。
+4. 当前 `current_chat` 发送还走 wx4py 默认 `send_text_via_input`，里面包含多段点击、清空、粘贴和发送等待。
+
+### 本轮新增修复
+
+1. `/mode` 现在会写入 runtime profile：
+   - 普通模式：`poll_interval_ms = 300`、`history_limit = 200`、`inter_message_delay_ms = 180`、`retry_count = 1`
+   - 极速模式：`poll_interval_ms = 20`、`history_limit = 50`、`inter_message_delay_ms = 0`、`retry_count = 0`
+2. `/mode` 在 bot 正在运行时会自动重启 bot，让新 runtime 立即生效。
+3. `run_bot.py` 启动前会按当前桌面模式重新套用 runtime profile。
+4. 极速模式下 `current_chat` 发送会启用快速剪贴板驱动：
+   - 要求当前焦点必须已经在微信聊天输入框内
+   - 直接执行 `Ctrl+A`、`Delete`、写剪贴板、`Ctrl+V`、`Enter`
+   - 不再走 wx4py 默认慢速输入路径
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter test test/desktop_console_controller_test.dart test/http_desktop_service_test.dart test/desktop_console_page_test.dart
+```
+
+结果：
+
+1. Python 测试总计 `31/31` 通过。
+2. Flutter 目标测试通过。
+
+### 后续测试注意事项
+
+1. 这次改的是 Python desktop service 和 bot runtime；如果桌面服务已经在运行，需要重启桌面服务或重新点一次模式切换，才能加载新代码。
+2. 极速模式要求微信当前焦点已经在目标聊天输入框，否则会快速失败为 `chat_input_not_focused`，不会再花时间搜索输入框。

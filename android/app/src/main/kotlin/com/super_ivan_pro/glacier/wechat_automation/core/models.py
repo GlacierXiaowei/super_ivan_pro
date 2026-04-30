@@ -125,6 +125,7 @@ class RuntimeConfig:
     dry_run: bool = True
     inter_message_delay_ms: int = 180
     retry_count: int = 1
+    current_chat_fast_send: bool = False
     log_dir: str = "logs"
     arm_state_path: str = "config/arm_state.local.json"
 
@@ -133,12 +134,13 @@ class RuntimeConfig:
         return cls(
             watcher_backend=str(payload.get("watcher_backend") or "replay"),
             watcher_url=str(payload.get("watcher_url") or "http://127.0.0.1:5678"),
-            poll_interval_ms=int(payload.get("poll_interval_ms") or 300),
-            history_limit=int(payload.get("history_limit") or 200),
+            poll_interval_ms=_payload_int(payload, "poll_interval_ms", 300),
+            history_limit=_payload_int(payload, "history_limit", 200),
             sender_backend=str(payload.get("sender_backend") or "dry_run"),
             dry_run=bool(payload.get("dry_run", True)),
-            inter_message_delay_ms=int(payload.get("inter_message_delay_ms") or 180),
-            retry_count=int(payload.get("retry_count") or 1),
+            inter_message_delay_ms=_payload_int(payload, "inter_message_delay_ms", 180),
+            retry_count=_payload_int(payload, "retry_count", 1),
+            current_chat_fast_send=bool(payload.get("current_chat_fast_send", False)),
             log_dir=str(payload.get("log_dir") or "logs"),
             arm_state_path=str(payload.get("arm_state_path") or "config/arm_state.local.json"),
         )
@@ -148,3 +150,10 @@ class RuntimeConfig:
 class MatchResult:
     matched: bool
     reason: str
+
+
+def _payload_int(payload: dict[str, Any], key: str, default: int) -> int:
+    value = payload.get(key, default)
+    if value is None or value == "":
+        return default
+    return int(value)

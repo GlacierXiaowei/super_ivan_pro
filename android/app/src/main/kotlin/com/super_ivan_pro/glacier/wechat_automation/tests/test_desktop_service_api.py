@@ -349,6 +349,54 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(stored_rules[0]["chat_scope"], "group")
             app.handle_json("POST", "/services/stop")
 
+    def test_rapid_mode_updates_runtime_profile_and_restarts_running_bot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            popen_factory = FakePopenFactory()
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=popen_factory,
+            )
+
+            app.handle_json("POST", "/services/start")
+            self.assertEqual(len(popen_factory.calls), 1)
+
+            status_code, rapid = app.handle_json("POST", "/mode", {"mode": "rapid"})
+            self.assertEqual(status_code, 200)
+            self.assertEqual(rapid["mode"], "rapid")
+            self.assertEqual(len(popen_factory.calls), 2)
+            self.assertTrue(popen_factory.processes[0].terminated)
+
+            runtime_payload = json.loads(
+                (runtime_root / "config" / "runtime.local.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(runtime_payload["poll_interval_ms"], 20)
+            self.assertEqual(runtime_payload["history_limit"], 50)
+            self.assertEqual(runtime_payload["inter_message_delay_ms"], 0)
+            self.assertEqual(runtime_payload["retry_count"], 0)
+            self.assertTrue(runtime_payload["current_chat_fast_send"])
+
+            status_code, normal = app.handle_json("POST", "/mode", {"mode": "normal"})
+            self.assertEqual(status_code, 200)
+            self.assertEqual(normal["mode"], "normal")
+            self.assertEqual(len(popen_factory.calls), 3)
+            self.assertTrue(popen_factory.processes[1].terminated)
+
+            runtime_payload = json.loads(
+                (runtime_root / "config" / "runtime.local.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(runtime_payload["poll_interval_ms"], 300)
+            self.assertEqual(runtime_payload["history_limit"], 200)
+            self.assertEqual(runtime_payload["inter_message_delay_ms"], 180)
+            self.assertEqual(runtime_payload["retry_count"], 1)
+            self.assertFalse(runtime_payload["current_chat_fast_send"])
+            app.handle_json("POST", "/services/stop")
+
     def test_rejects_incomplete_target_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
