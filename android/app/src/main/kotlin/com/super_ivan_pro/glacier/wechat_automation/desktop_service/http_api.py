@@ -99,6 +99,13 @@ class BotProcessManager:
             self._cleanup_handles()
         return True
 
+    def restart(self, runtime_path: Path, rules_path: Path) -> bool:
+        was_running = self.is_running()
+        if was_running:
+            self.stop()
+        self.start(runtime_path, rules_path)
+        return was_running
+
     def _cleanup_handles(self) -> None:
         if self._stdout_handle is not None:
             self._stdout_handle.close()
@@ -171,6 +178,12 @@ class DesktopServiceApp:
                 "is_group": bool(body["is_group"]),
             }
             self._store.save(state)
+            self._sync_desktop_rule_target(
+                talker=str(body["talker"]),
+                is_group=bool(body["is_group"]),
+            )
+            if self._process_manager.is_running():
+                self._process_manager.restart(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
         if normalized_method == "GET" and normalized_path == "/rules":
@@ -188,6 +201,8 @@ class DesktopServiceApp:
                 json.dumps(rules, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+            if self._process_manager.is_running():
+                self._process_manager.restart(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, {"rules": rules}
 
         if normalized_method == "GET" and normalized_path == "/arm-state":
@@ -276,6 +291,24 @@ class DesktopServiceApp:
             "triggers_sent": int(arm["triggers_sent"]),
             "reason": str(arm["reason"]),
         }
+
+    def _sync_desktop_rule_target(self, talker: str, is_group: bool) -> None:
+        rules = self._read_rules()
+        updated = False
+        for rule in rules:
+            if str(rule.get("id", "")).strip() != "desktop_rule":
+                continue
+            rule["talker"] = talker
+            rule["chat_scope"] = "group" if is_group else "private"
+            updated = True
+
+        if not updated:
+            return
+
+        self._rules_path.write_text(
+            json.dumps(rules, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def _fetch_recent_events(self, limit: int, chat: str) -> list[dict[str, object]]:
         try:

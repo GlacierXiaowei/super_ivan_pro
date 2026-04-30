@@ -73,11 +73,13 @@ class FakeProcess:
 class FakePopenFactory:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
-        self.process = FakeProcess()
+        self.processes: list[FakeProcess] = []
 
     def __call__(self, args: list[str], **kwargs: object) -> FakeProcess:
+        process = FakeProcess()
         self.calls.append({"args": list(args), "kwargs": dict(kwargs)})
-        return self.process
+        self.processes.append(process)
+        return process
 
 
 class DesktopServiceApiTest(unittest.TestCase):
@@ -198,7 +200,7 @@ class DesktopServiceApiTest(unittest.TestCase):
             status_code, stopped = app.handle_json("POST", "/services/stop")
             self.assertEqual(status_code, 200)
             self.assertEqual(stopped["service_state"], "stopped")
-            self.assertTrue(popen_factory.process.terminated)
+            self.assertTrue(popen_factory.processes[0].terminated)
 
     def test_rules_arm_state_and_recent_events_endpoints(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,6 +252,102 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(status_code, 200)
             self.assertEqual(len(events_payload["events"]), 2)
             self.assertEqual(events_payload["events"][0]["talker_name"], "文件传输助手")
+
+    def test_rule_update_restarts_running_bot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            popen_factory = FakePopenFactory()
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=popen_factory,
+            )
+
+            status_code, running = app.handle_json("POST", "/services/start")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(running["service_state"], "running")
+            self.assertEqual(len(popen_factory.calls), 1)
+
+            payload = [
+                {
+                    "id": "desktop_rule",
+                    "enabled": True,
+                    "talker": "wxid_target",
+                    "sender": "",
+                    "chat_scope": "private",
+                    "type": "text",
+                    "match_mode": "regex",
+                    "pattern": "START",
+                    "cooldown_ms": 300,
+                    "replies": ["ACK"],
+                }
+            ]
+            status_code, updated = app.handle_json("POST", "/rules", {"rules": payload})
+            self.assertEqual(status_code, 200)
+            self.assertEqual(updated["rules"][0]["talker"], "wxid_target")
+            self.assertEqual(len(popen_factory.calls), 2)
+            self.assertTrue(popen_factory.processes[0].terminated)
+            app.handle_json("POST", "/services/stop")
+
+    def test_target_update_syncs_desktop_rule_and_restarts_running_bot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            popen_factory = FakePopenFactory()
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=popen_factory,
+            )
+
+            app.handle_json(
+                "POST",
+                "/rules",
+                {
+                    "rules": [
+                        {
+                            "id": "desktop_rule",
+                            "enabled": True,
+                            "talker": "old_talker",
+                            "sender": "",
+                            "chat_scope": "private",
+                            "type": "text",
+                            "match_mode": "regex",
+                            "pattern": "START",
+                            "cooldown_ms": 800,
+                            "replies": ["ACK"],
+                        }
+                    ]
+                },
+            )
+            app.handle_json("POST", "/services/start")
+            self.assertEqual(len(popen_factory.calls), 1)
+
+            status_code, updated = app.handle_json(
+                "POST",
+                "/targets/active",
+                {
+                    "talker": "57581313812@chatroom",
+                    "display_name": "测试群",
+                    "is_group": True,
+                },
+            )
+            self.assertEqual(status_code, 200)
+            self.assertEqual(updated["active_target"]["talker"], "57581313812@chatroom")
+            self.assertEqual(len(popen_factory.calls), 2)
+            self.assertTrue(popen_factory.processes[0].terminated)
+
+            stored_rules = json.loads((runtime_root / "config" / "rules.local.json").read_text(encoding="utf-8"))
+            self.assertEqual(stored_rules[0]["talker"], "57581313812@chatroom")
+            self.assertEqual(stored_rules[0]["chat_scope"], "group")
+            app.handle_json("POST", "/services/stop")
 
     def test_rejects_incomplete_target_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
