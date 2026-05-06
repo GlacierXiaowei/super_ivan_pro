@@ -731,3 +731,55 @@ flutter build windows
 6. `flutter test` 通过。
 7. Windows 打包成功生成：
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+
+---
+
+## 2026-05-06 任意触发回环与 UI 勾选修复
+
+### 本轮定位
+
+本轮根据真实测试反馈定位到两个问题：
+
+1. 任意触发偶发发送两条消息：
+   - 根因是 `match_mode = any` 不看消息内容。
+   - bot 发出的回复会被 `wechat-decrypt` 再读回同一会话。
+   - 读回的自发消息也满足 `talker/chat_scope/type`，于是再次触发。
+2. “任意消息触发”勾选状态很难保存：
+   - 桌面页面每 1 秒刷新一次 snapshot。
+   - HTTP status 每次都会构造新的 `replies` list。
+   - Flutter 之前用 list 引用比较判断是否要同步表单，等价内容的新 list 也被认为变化。
+   - 因此本地刚点的 checkbox 会被服务端旧状态覆盖。
+
+### 本轮修复
+
+1. bot 新增 sent echo 抑制：
+   - 每次成功发送后，短时间记录 `(talker, reply content, source sender)`。
+   - 如果随后读到同一会话、同一内容、且不是原始发送人的消息，则视为 bot 自己发出的 echo。
+   - echo 事件会记录 `event_skip reason=sent_echo`，不会再次触发回复。
+2. `RulePanel` 的刷新同步改为内容比较：
+   - `replies` 使用 `listEquals`。
+   - 等价刷新不再重置本地 checkbox 状态。
+   - 用户可以正常勾选/取消“任意消息触发”，不需要抢在 1 秒刷新前点击保存。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_bot_armed_current_chat.py -v
+flutter test test/rule_panel_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. 新增自发 echo 不再触发的回归测试先红后绿。
+2. 新增任意触发 checkbox 等价刷新不重置的 widget 测试先红后绿。
+3. Python 全量测试总计 `44/44` 通过。
+4. `flutter analyze` 无问题。
+5. `flutter test` 通过。
+6. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`

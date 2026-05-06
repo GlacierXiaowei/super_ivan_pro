@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.dart';
 import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/panel_card.dart';
 
@@ -49,7 +50,10 @@ class _RulePanelState extends State<RulePanel> {
   void didUpdateWidget(covariant RulePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.snapshot.rule.pattern != widget.snapshot.rule.pattern ||
-        oldWidget.snapshot.rule.replies != widget.snapshot.rule.replies ||
+        !listEquals(
+          oldWidget.snapshot.rule.replies,
+          widget.snapshot.rule.replies,
+        ) ||
         oldWidget.snapshot.rule.cooldownMs != widget.snapshot.rule.cooldownMs ||
         oldWidget.snapshot.rule.replyDelayMs !=
             widget.snapshot.rule.replyDelayMs ||

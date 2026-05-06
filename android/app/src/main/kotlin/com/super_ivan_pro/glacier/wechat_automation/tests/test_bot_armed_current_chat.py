@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 from core.arm_state import ArmStateStore  # noqa: E402
 from core.bot import WeChatAutomationBot  # noqa: E402
 from core.dispatcher import SendDispatcher  # noqa: E402
-from core.models import MessageEvent, MessageType, Rule, RuntimeConfig  # noqa: E402
+from core.models import ChatScope, MatchMode, MessageEvent, MessageType, Rule, RuntimeConfig  # noqa: E402
 
 
 class MemorySender:
@@ -42,6 +42,20 @@ def build_event(seq: str) -> MessageEvent:
     )
 
 
+def build_group_event(seq: str, sender: str, content: str) -> MessageEvent:
+    return MessageEvent(
+        seq=seq,
+        timestamp="1",
+        talker="47561933285@chatroom",
+        talker_name="47561933285@chatroom",
+        is_chat_room=True,
+        sender=sender,
+        sender_name=sender,
+        message_type=MessageType.TEXT,
+        content=content,
+    )
+
+
 def build_rule(reply_delay_ms: int = 0) -> Rule:
     return Rule.from_dict(
         {
@@ -57,6 +71,21 @@ def build_rule(reply_delay_ms: int = 0) -> Rule:
             "reply_delay_ms": reply_delay_ms,
             "replies": ["TEST", "第二条"],
         }
+    )
+
+
+def build_any_group_rule() -> Rule:
+    return Rule(
+        id="any_group_message",
+        enabled=True,
+        talker="47561933285@chatroom",
+        sender="",
+        chat_scope=ChatScope.GROUP,
+        message_type=MessageType.UNKNOWN,
+        match_mode=MatchMode.ANY,
+        pattern="",
+        cooldown_ms=0,
+        replies=["TEST"],
     )
 
 
@@ -116,6 +145,24 @@ class ArmedBotTest(unittest.TestCase):
 
             self.assertEqual(calls[0], "sleep:0.15")
             self.assertEqual(calls[1], "send:TEST")
+
+    def test_arbitrary_trigger_does_not_reply_to_its_own_echo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ArmStateStore(Path(tmp) / "arm_state.json")
+            store.arm(max_triggers=5)
+            sender = MemorySender()
+            dispatcher = SendDispatcher(sender, RuntimeConfig(), logging.getLogger("test"))
+            bot = WeChatAutomationBot(
+                [build_any_group_rule()],
+                dispatcher,
+                logging.getLogger("test"),
+                store,
+            )
+
+            bot.process(build_group_event("incoming", "威士忌Wow", "hello"))
+            bot.process(build_group_event("echo", "wxid_w541fvgeqaq922", "TEST"))
+
+            self.assertEqual(sender.sent, ["TEST"])
 
 
 if __name__ == "__main__":
