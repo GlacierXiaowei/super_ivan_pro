@@ -112,6 +112,8 @@ class DesktopLogLine {
 class DesktopSnapshot {
   const DesktopSnapshot({
     required this.serviceStatusLabel,
+    required this.watcherStateLabel,
+    required this.watcherError,
     required this.activeTarget,
     required this.recentChats,
     required this.recentEvents,
@@ -124,6 +126,8 @@ class DesktopSnapshot {
   factory DesktopSnapshot.seed() {
     return const DesktopSnapshot(
       serviceStatusLabel: 'running',
+      watcherStateLabel: 'running',
+      watcherError: '',
       activeTarget: ActiveTarget(
         displayName: '文件传输助手',
         talker: 'filehelper',
@@ -163,6 +167,8 @@ class DesktopSnapshot {
   factory DesktopSnapshot.offline() {
     return const DesktopSnapshot(
       serviceStatusLabel: '本地服务未启动',
+      watcherStateLabel: 'unknown',
+      watcherError: '',
       activeTarget: ActiveTarget(displayName: '', talker: '', isGroup: false),
       recentChats: [],
       recentEvents: [],
@@ -220,6 +226,8 @@ class DesktopSnapshot {
 
     return DesktopSnapshot(
       serviceStatusLabel: json['service_state'] as String? ?? 'running',
+      watcherStateLabel: json['watcher_state'] as String? ?? 'unknown',
+      watcherError: json['watcher_error'] as String? ?? '',
       activeTarget: ActiveTarget(
         displayName: activeTarget?['display_name'] as String? ?? '',
         talker: activeTarget?['talker'] as String? ?? '',
@@ -246,6 +254,8 @@ class DesktopSnapshot {
   }
 
   final String serviceStatusLabel;
+  final String watcherStateLabel;
+  final String watcherError;
   final ActiveTarget activeTarget;
   final List<RecentChatPreview> recentChats;
   final List<RecentEventPreview> recentEvents;
@@ -256,6 +266,8 @@ class DesktopSnapshot {
 
   DesktopSnapshot copyWith({
     String? serviceStatusLabel,
+    String? watcherStateLabel,
+    String? watcherError,
     ActiveTarget? activeTarget,
     List<RecentChatPreview>? recentChats,
     List<RecentEventPreview>? recentEvents,
@@ -266,6 +278,8 @@ class DesktopSnapshot {
   }) {
     return DesktopSnapshot(
       serviceStatusLabel: serviceStatusLabel ?? this.serviceStatusLabel,
+      watcherStateLabel: watcherStateLabel ?? this.watcherStateLabel,
+      watcherError: watcherError ?? this.watcherError,
       activeTarget: activeTarget ?? this.activeTarget,
       recentChats: recentChats ?? this.recentChats,
       recentEvents: recentEvents ?? this.recentEvents,

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
+import urllib.request
 
 from core.arm_state import ArmStateStore
 from core.config_loader import load_runtime_config
@@ -140,6 +143,73 @@ class BotProcessManager:
         self._stderr_handle = None
 
 
+class WechatDecryptProcessManager:
+    def __init__(
+        self,
+        runtime_root: Path,
+        popen_factory: Callable[..., Any] = subprocess.Popen,
+        python_executable: str = sys.executable,
+    ) -> None:
+        self._runtime_root = Path(runtime_root)
+        self._popen_factory = popen_factory
+        self._python_executable = python_executable
+        self._process: Any | None = None
+        self._stdout_handle: Any | None = None
+        self._stderr_handle: Any | None = None
+
+    def is_running(self) -> bool:
+        return self._process is not None and self._process.poll() is None
+
+    def start(self, source_root: Path) -> bool:
+        if self.is_running():
+            return False
+
+        script_path = source_root / "main.py"
+        if not script_path.exists():
+            return False
+
+        self._cleanup_handles()
+        logs_dir = self._runtime_root / "logs" / "wechat_decrypt"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        self._stdout_handle = (logs_dir / "stdout.log").open("a", encoding="utf-8")
+        self._stderr_handle = (logs_dir / "stderr.log").open("a", encoding="utf-8")
+
+        command = [self._python_executable, "main.py"]
+        self._process = self._popen_factory(
+            command,
+            cwd=str(source_root),
+            stdout=self._stdout_handle,
+            stderr=self._stderr_handle,
+        )
+        return True
+
+    def stop(self) -> bool:
+        if not self.is_running():
+            self._process = None
+            self._cleanup_handles()
+            return False
+
+        assert self._process is not None
+        self._process.terminate()
+        try:
+            self._process.wait(timeout=5)
+        except Exception:
+            self._process.kill()
+            self._process.wait(timeout=2)
+        finally:
+            self._process = None
+            self._cleanup_handles()
+        return True
+
+    def _cleanup_handles(self) -> None:
+        if self._stdout_handle is not None:
+            self._stdout_handle.close()
+        if self._stderr_handle is not None:
+            self._stderr_handle.close()
+        self._stdout_handle = None
+        self._stderr_handle = None
+
+
 class DesktopServiceApp:
     def __init__(
         self,
@@ -148,6 +218,7 @@ class DesktopServiceApp:
         watcher_factory: Callable[[RuntimeConfig], object] = WechatDecryptHistoryWatcher,
         popen_factory: Callable[..., Any] = subprocess.Popen,
         python_executable: str = sys.executable,
+        source_health_check: Callable[[RuntimeConfig], bool] | None = None,
     ) -> None:
         self._runtime_root = Path(runtime_root)
         self._repo_root = Path(repo_root)
@@ -157,8 +228,15 @@ class DesktopServiceApp:
         self._arm_state_path = self._paths["arm_state"]
         self._store = DesktopStateStore(self._runtime_root)
         self._watcher_factory = watcher_factory
+        self._source_health_check = source_health_check or _default_source_health_check
+        self._last_watcher_error = ""
         self._process_manager = BotProcessManager(
             repo_root=self._repo_root,
+            runtime_root=self._runtime_root,
+            popen_factory=popen_factory,
+            python_executable=python_executable,
+        )
+        self._source_process_manager = WechatDecryptProcessManager(
             runtime_root=self._runtime_root,
             popen_factory=popen_factory,
             python_executable=python_executable,
@@ -180,16 +258,21 @@ class DesktopServiceApp:
 
         if normalized_method == "POST" and normalized_path == "/services/start":
             self._apply_runtime_mode_profile(str(self._store.load().get("mode", "normal")))
-            self._process_manager.start(self._runtime_config_path, self._rules_path)
+            runtime = load_runtime_config(self._runtime_config_path)
+            if self._ensure_source_available(runtime):
+                self._process_manager.start(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
         if normalized_method == "POST" and normalized_path == "/services/restart":
             self._apply_runtime_mode_profile(str(self._store.load().get("mode", "normal")))
-            self._process_manager.restart(self._runtime_config_path, self._rules_path)
+            runtime = load_runtime_config(self._runtime_config_path)
+            if self._ensure_source_available(runtime):
+                self._process_manager.restart(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
         if normalized_method == "POST" and normalized_path == "/services/stop":
             self._process_manager.stop()
+            self._source_process_manager.stop()
             return HTTPStatus.OK, self._build_status(limit=20)
 
         if normalized_method == "POST" and normalized_path == "/targets/active":
@@ -296,6 +379,8 @@ class DesktopServiceApp:
 
         status = {
             "service_state": "running" if self._process_manager.is_running() else "stopped",
+            "watcher_state": "unavailable" if self._last_watcher_error else "running",
+            "watcher_error": self._last_watcher_error,
             "armed": arm_state["armed"],
             "mode": state.get("mode", "normal"),
             "rule_pattern": str(first_rule.get("pattern", "")),
@@ -369,13 +454,17 @@ class DesktopServiceApp:
             runtime = load_runtime_config(self._runtime_config_path)
             watcher = self._watcher_factory(runtime)
             if not hasattr(watcher, "fetch_recent_events"):
+                self._last_watcher_error = "watcher_fetch_not_supported"
                 return []
             events = watcher.fetch_recent_events(limit=limit, chat=chat)
             if not isinstance(events, list):
+                self._last_watcher_error = "watcher_payload_invalid"
                 return []
             payloads = [_event_to_payload(event) for event in events if isinstance(event, MessageEvent)]
+            self._last_watcher_error = ""
             return payloads
-        except Exception:
+        except Exception as exc:
+            self._last_watcher_error = str(exc) or exc.__class__.__name__
             state = self._store.load()
             fallback = state.get("recent_events", [])
             if isinstance(fallback, list):
@@ -388,12 +477,33 @@ class DesktopServiceApp:
             logs_dir / "wechat_automation.log",
             logs_dir / "live_bot" / "stdout.log",
             logs_dir / "live_bot" / "stderr.log",
+            logs_dir / "wechat_decrypt" / "stdout.log",
+            logs_dir / "wechat_decrypt" / "stderr.log",
         ]
 
         entries: list[dict[str, str]] = []
         for path in candidates:
             entries.extend(_read_log_file_tail(path, limit=limit))
         return entries[-limit:]
+
+    def _ensure_source_available(self, runtime: RuntimeConfig) -> bool:
+        source_root = _resolve_wechat_decrypt_root(runtime)
+        if source_root is None:
+            return True
+
+        if self._source_health_check(runtime):
+            return True
+
+        self._source_process_manager.start(source_root)
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            if self._source_health_check(runtime):
+                self._last_watcher_error = ""
+                return True
+            time.sleep(0.25)
+
+        self._last_watcher_error = "wechat_decrypt_not_ready"
+        return False
 
 
 def _read_log_file_tail(path: Path, limit: int) -> list[dict[str, str]]:
@@ -408,6 +518,8 @@ def _read_log_file_tail(path: Path, limit: int) -> list[dict[str, str]]:
     source = path.name
     if path.parent.name == "live_bot":
         source = f"live_bot/{path.name}"
+    if path.parent.name == "wechat_decrypt":
+        source = f"wechat_decrypt/{path.name}"
     return [
         _log_to_payload(source, line.strip())
         for line in lines[-limit:]
@@ -431,12 +543,37 @@ def _first_enabled_rule(rules: list[dict[str, Any]]) -> dict[str, Any]:
     return {}
 
 
+def _resolve_wechat_decrypt_root(runtime: RuntimeConfig) -> Path | None:
+    candidates = [
+        runtime.wechat_decrypt_root,
+        os.environ.get("SUPER_IVAN_WECHAT_DECRYPT_ROOT", ""),
+    ]
+    for candidate in candidates:
+        normalized = str(candidate or "").strip()
+        if not normalized:
+            continue
+        path = Path(normalized)
+        if (path / "main.py").exists():
+            return path
+    return None
+
+
+def _default_source_health_check(runtime: RuntimeConfig) -> bool:
+    url = f"{runtime.watcher_url.rstrip('/')}/api/history?limit=1"
+    try:
+        with urllib.request.urlopen(url, timeout=2):
+            return True
+    except Exception:
+        return False
+
+
 def create_app(
     runtime_root: Path | None = None,
     repo_root: Path | None = None,
     watcher_factory: Callable[[RuntimeConfig], object] = WechatDecryptHistoryWatcher,
     popen_factory: Callable[..., Any] = subprocess.Popen,
     python_executable: str = sys.executable,
+    source_health_check: Callable[[RuntimeConfig], bool] | None = None,
 ) -> DesktopServiceApp:
     resolved_runtime_root = resolve_runtime_root(override=runtime_root)
     resolved_repo_root = resolve_repo_root(override=repo_root)
@@ -446,6 +583,7 @@ def create_app(
         watcher_factory=watcher_factory,
         popen_factory=popen_factory,
         python_executable=python_executable,
+        source_health_check=source_health_check,
     )
 
 

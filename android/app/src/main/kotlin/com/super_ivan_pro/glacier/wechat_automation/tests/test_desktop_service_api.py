@@ -46,6 +46,16 @@ class DummyWatcher:
         ][: max(limit, 1)]
 
 
+class FailingWatcher:
+    def __init__(self, runtime: RuntimeConfig) -> None:
+        self.runtime = runtime
+
+    def fetch_recent_events(self, limit: int = 50, chat: str = "") -> list[MessageEvent]:
+        _ = limit
+        _ = chat
+        raise ConnectionRefusedError("watcher offline")
+
+
 class FakeProcess:
     def __init__(self) -> None:
         self.returncode = None
@@ -80,6 +90,19 @@ class FakePopenFactory:
         self.calls.append({"args": list(args), "kwargs": dict(kwargs)})
         self.processes.append(process)
         return process
+
+
+class SequenceSourceHealthCheck:
+    def __init__(self, results: list[bool]) -> None:
+        self.results = list(results)
+        self.calls = 0
+
+    def __call__(self, runtime: RuntimeConfig) -> bool:
+        _ = runtime
+        self.calls += 1
+        if self.results:
+            return self.results.pop(0)
+        return False
 
 
 class DesktopServiceApiTest(unittest.TestCase):
@@ -295,6 +318,24 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertIn("recent_logs", status)
             self.assertGreaterEqual(len(status["recent_logs"]), 2)
 
+    def test_status_reports_watcher_unavailable_when_history_fetch_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=FailingWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            status_code, status = app.handle_json("GET", "/status")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(status["watcher_state"], "unavailable")
+            self.assertEqual(status["watcher_error"], "watcher offline")
+
     def test_rule_update_restarts_running_bot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -333,6 +374,40 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(updated["rules"][0]["talker"], "wxid_target")
             self.assertEqual(len(popen_factory.calls), 2)
             self.assertTrue(popen_factory.processes[0].terminated)
+            app.handle_json("POST", "/services/stop")
+
+    def test_start_launches_wechat_decrypt_source_before_bot_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            source_root = tmp_path / "wechat-decrypt"
+            source_root.mkdir(parents=True)
+            (source_root / "main.py").write_text("print('source placeholder')\n", encoding="utf-8")
+            self._build_repo_fixture(repo_root)
+            runtime_path = repo_root / "config" / "runtime.local.json"
+            runtime_payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+            runtime_payload["wechat_decrypt_root"] = str(source_root)
+            runtime_path.write_text(json.dumps(runtime_payload), encoding="utf-8")
+            popen_factory = FakePopenFactory()
+            source_health = SequenceSourceHealthCheck([False, True])
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=popen_factory,
+                source_health_check=source_health,
+            )
+
+            status_code, running = app.handle_json("POST", "/services/start")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(running["service_state"], "running")
+            self.assertEqual(running["watcher_state"], "running")
+            self.assertEqual(len(popen_factory.calls), 2)
+            self.assertEqual(popen_factory.calls[0]["args"][1], "main.py")
+            self.assertEqual(popen_factory.calls[0]["kwargs"]["cwd"], str(source_root))
+            self.assertIn("--live", popen_factory.calls[1]["args"])
+            self.assertGreaterEqual(source_health.calls, 2)
             app.handle_json("POST", "/services/stop")
 
     def test_restart_endpoint_restarts_running_bot(self) -> None:

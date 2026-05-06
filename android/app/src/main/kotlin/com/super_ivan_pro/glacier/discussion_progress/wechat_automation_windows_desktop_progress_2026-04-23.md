@@ -376,3 +376,88 @@ flutter build windows
 3. 如果模式或配置切换后状态异常，点击“重启服务”。
 4. 在“运行日志”区域查看是否出现 `event_received`、`rule_match`、`dispatch_success` 或 `chat_input_not_focused`。
 5. 如果下一步要真正做到单 app 全托管，还需要把 `wechat-decrypt` 的源码路径、启动命令和依赖一起纳入 launcher。
+
+---
+
+## 2026-05-06 打包 app 启动服务但消息不更新修复
+
+### 本轮定位到的真实原因
+
+1. 打包后的 Flutter app 已经可以启动 `desktop_service.py`。
+2. 但是点击“启动服务”后，`run_bot.py` 依赖的消息源 `http://127.0.0.1:5678/api/history` 没有运行。
+3. 结果是 live bot 在启动初期因为 `ConnectionRefusedError` 退出，页面只能看到 `stopped` 或无法更新消息列表。
+4. 根因不是 Flutter UI 没发出启动请求，而是 `wechat-decrypt` 这一层之前没有被桌面 app 托管。
+
+### 本轮新增修复
+
+1. `RuntimeConfig` 新增 `wechat_decrypt_root`，用于配置本机 `wechat-decrypt` 源码目录。
+2. Python desktop service 新增 `WechatDecryptProcessManager`：
+   - 如果 runtime 中配置了 `wechat_decrypt_root`，启动 bot 前先检查 `watcher_url`。
+   - 如果消息源不可用，先在 `wechat_decrypt_root` 下执行 `python main.py`。
+   - 等待消息源健康后再启动 `run_bot.py`。
+3. `POST /services/stop` 会同时停止由 desktop service 拉起的 live bot 和 `wechat-decrypt`。
+4. `GET /status` 新增：
+   - `watcher_state`
+   - `watcher_error`
+5. Flutter 控制台新增“消息源”状态展示，并在消息源异常时显示具体错误。
+6. 日志面板现在会读取：
+   - `logs/live_bot/stdout.log`
+   - `logs/live_bot/stderr.log`
+   - `logs/wechat_decrypt/stdout.log`
+   - `logs/wechat_decrypt/stderr.log`
+
+### 本机配置要求
+
+打包 app 的运行时配置位于：
+
+```text
+%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json
+```
+
+本机当前需要写入：
+
+```json
+"wechat_decrypt_root": "D:\\flutter_app\\_tmp\\wechat-decrypt"
+```
+
+如果这个路径不存在、缺少 `main.py`，或者 `wechat-decrypt` 自身依赖缺失，desktop service 仍然无法托管消息源。
+
+### 本轮运行时验证
+
+已确认：
+
+1. `desktop_service.py` 从打包产物 assets 启动，监听 `127.0.0.1:18090`。
+2. `wechat-decrypt` 已由 desktop service 拉起，`http://127.0.0.1:5678/api/history?limit=1` 可返回消息。
+3. `run_bot.py` 已启动。
+4. `/status` 返回：
+   - `service_state = running`
+   - `watcher_state = running`
+   - `watcher_error = ""`
+   - `armed = false`
+   - `mode = rapid`
+5. `recent_events` 已能显示真实消息记录。
+
+### 本轮代码验证
+
+已执行：
+
+```bash
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. Python 测试总计 `35/35` 通过。
+2. Flutter analyze 无问题。
+3. Flutter 全量测试通过。
+4. Windows 打包成功生成 `build/windows/x64/runner/Release/super_ivan_pro.exe`。
+
+### 当前边界
+
+1. 这次解决的是“app 只启动 bot，但没有启动消息源”的问题。
+2. 仍然依赖本机 Python、`wechat-decrypt` 源码目录和其 Python 依赖，不是完全独立的单 exe。
+3. 自动发送仍受 armed 状态控制；测试期间默认应先保持 `armed=false`，避免误触发。
+4. 表情包识别仍取决于 `wechat-decrypt` 能否正确解析 type=47 / emoji 资源，目前日志里仍可能出现 emoji 查询失败，这不是本轮修复范围。

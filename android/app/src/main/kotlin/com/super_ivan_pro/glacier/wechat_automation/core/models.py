@@ -128,6 +128,7 @@ class RuntimeConfig:
     current_chat_fast_send: bool = False
     log_dir: str = "logs"
     arm_state_path: str = "config/arm_state.local.json"
+    wechat_decrypt_root: str = ""
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RuntimeConfig":
@@ -143,6 +144,7 @@ class RuntimeConfig:
             current_chat_fast_send=bool(payload.get("current_chat_fast_send", False)),
             log_dir=str(payload.get("log_dir") or "logs"),
             arm_state_path=str(payload.get("arm_state_path") or "config/arm_state.local.json"),
+            wechat_decrypt_root=str(payload.get("wechat_decrypt_root") or ""),
         )
 
 

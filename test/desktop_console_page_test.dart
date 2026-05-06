@@ -17,6 +17,7 @@ void main() {
     expect(find.text('Arm'), findsOneWidget);
     expect(find.text('Disarm'), findsOneWidget);
     expect(find.text('重启服务'), findsOneWidget);
+    expect(find.text('消息源: running'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();

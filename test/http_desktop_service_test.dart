@@ -18,6 +18,8 @@ void main() {
           ..write(
             jsonEncode({
               'service_state': 'running',
+              'watcher_state': 'unavailable',
+              'watcher_error': 'watcher offline',
               'armed': true,
               'mode': 'rapid',
               'rule_pattern': 'START',
@@ -58,6 +60,8 @@ void main() {
 
     final snapshot = await service.loadSnapshot();
     expect(snapshot.serviceStatusLabel, 'running');
+    expect(snapshot.watcherStateLabel, 'unavailable');
+    expect(snapshot.watcherError, 'watcher offline');
     expect(snapshot.mode, DesktopMode.rapid);
     expect(snapshot.activeTarget.displayName, '文件传输助手');
     expect(snapshot.rule.replies, ['TEST', '第二条']);

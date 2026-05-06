@@ -35,6 +35,7 @@ class StatusPanel extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Chip(label: Text(snapshot.serviceStatusLabel)),
+              Chip(label: Text('消息源: ${snapshot.watcherStateLabel}')),
               Chip(
                 label: Text(snapshot.armState.enabled ? 'armed' : 'disarmed'),
               ),
@@ -50,6 +51,13 @@ class StatusPanel extends StatelessWidget {
               ),
             ],
           ),
+          if (snapshot.watcherError.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '消息源错误: ${snapshot.watcherError}',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
