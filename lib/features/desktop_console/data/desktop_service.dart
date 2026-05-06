@@ -7,5 +7,6 @@ abstract class DesktopService {
   Future<void> saveArmState(DesktopArmState state);
   Future<void> saveMode(DesktopMode mode);
   Future<void> startServices();
+  Future<void> restartServices();
   Future<void> stopServices();
 }

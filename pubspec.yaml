@@ -57,6 +57,29 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/arm_state.example.json
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/rules.example.json
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/runtime.example.json
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/__init__.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/arm_state.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/bot.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/config_loader.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/current_chat_sender.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/dedupe.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/dispatcher.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/logger.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/matcher.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/models.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/sender_adapter.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/watcher_adapter.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/desktop_service/__init__.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/desktop_service/config_paths.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/desktop_service/http_api.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/desktop_service/state_store.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/desktop_service.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/run_bot.py
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

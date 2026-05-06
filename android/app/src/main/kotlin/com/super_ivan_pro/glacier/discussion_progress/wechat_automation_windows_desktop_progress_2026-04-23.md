@@ -302,3 +302,77 @@ flutter test test/desktop_console_controller_test.dart test/http_desktop_service
 
 1. 这次改的是 Python desktop service 和 bot runtime；如果桌面服务已经在运行，需要重启桌面服务或重新点一次模式切换，才能加载新代码。
 2. 极速模式要求微信当前焦点已经在目标聊天输入框，否则会快速失败为 `chat_input_not_focused`，不会再花时间搜索输入框。
+
+---
+
+## 2026-05-06 桌面端测试闭环简化
+
+### 本轮目标
+
+这次主要解决桌面端真实测试太分散的问题：
+
+1. 尽量让桌面 app 自己拉起本地 Python 服务，不再要求手动开命令行启动 `desktop_service.py`。
+2. 在 Flutter UI 中直接展示运行日志，方便判断是否触发、是否匹配、是否发送失败。
+3. 在 UI 中提供显式“重启服务”按钮，用于切换模式或配置后手动重启 bot。
+
+### 本轮新增实现
+
+1. Flutter app 启动器现在优先解析 `wechat_automation` 服务根目录：
+   - 开发环境：从仓库内 `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation` 启动。
+   - 打包环境：从 Flutter assets 中的同一套 Python 服务文件启动。
+   - 仍可通过 `SUPER_IVAN_WECHAT_AUTOMATION_ROOT` 指定自定义服务目录。
+2. `pubspec.yaml` 已加入 Python 服务所需 assets：
+   - `config/*.example.json`
+   - `core/*.py`
+   - `desktop_service/*.py`
+   - `scripts/desktop_service.py`
+   - `scripts/run_bot.py`
+3. Python desktop service 新增：
+   - `POST /services/restart`
+   - `GET /logs/recent?limit=...`
+   - `GET /status` 返回 `recent_logs`
+4. Flutter UI 新增：
+   - “重启服务”按钮。
+   - “运行日志”面板，显示 `wechat_automation.log`、`live_bot/stdout.log`、`live_bot/stderr.log` 的最近日志。
+   - 页面每 1 秒自动刷新一次状态和日志，减少手动刷新。
+
+### 当前边界
+
+1. 本轮已经内嵌并托管的是我们自己的 `desktop_service.py` 和 `run_bot.py`。
+2. `wechat-decrypt` 这一层目前不在本仓库内，当前 app 还不能自动启动它。
+3. 如果 `wechat-decrypt` 没运行，日志面板会更容易看到连接失败或无新事件，但监听源仍需要下一步单独托管。
+4. 当前仍依赖本机已有 Python 和相关 Python 依赖；还没有做 bundled Python runtime。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+flutter test test/desktop_console_controller_test.dart test/http_desktop_service_test.dart test/desktop_console_page_test.dart test/windows_service_launcher_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. Python desktop service API 目标测试 `8/8` 通过。
+2. Flutter 桌面控制台目标测试 `10/10` 通过。
+3. Python 全量测试 `33/33` 通过。
+4. Flutter analyze 无问题。
+5. Flutter 全量测试通过。
+6. Windows 打包成功生成 `build/windows/x64/runner/Release/super_ivan_pro.exe`。
+7. 打包产物中已确认存在 Python 服务 assets：
+   - `scripts/desktop_service.py`
+   - `core/bot.py`
+   - `config/runtime.example.json`
+
+### 下一步建议
+
+1. 重新打包 Windows 桌面 app。
+2. 打开打包后的 app，点击“启动服务”。
+3. 如果模式或配置切换后状态异常，点击“重启服务”。
+4. 在“运行日志”区域查看是否出现 `event_received`、`rule_match`、`dispatch_success` 或 `chat_input_not_focused`。
+5. 如果下一步要真正做到单 app 全托管，还需要把 `wechat-decrypt` 的源码路径、启动命令和依赖一起纳入 launcher。

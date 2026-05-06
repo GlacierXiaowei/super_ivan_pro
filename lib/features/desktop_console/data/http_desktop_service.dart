@@ -20,7 +20,7 @@ class HttpDesktopService implements DesktopService {
     return HttpDesktopService(
       Uri.parse('http://$host:$port'),
       launcher: WindowsServiceLauncher(
-        workspaceRoot: WindowsServiceLauncher.resolveWorkspaceRoot(),
+        serviceRoot: WindowsServiceLauncher.resolveServiceRoot(),
         pythonExecutable:
             Platform.environment['SUPER_IVAN_DESKTOP_PYTHON'] ?? 'python',
         host: host,
@@ -60,7 +60,13 @@ class HttpDesktopService implements DesktopService {
   @override
   Future<void> saveRule(DesktopRule rule) async {
     await _ensureServerRunning();
-    await _requestJson('POST', '/rules', body: {'rules': [rule.toRulePayload()]});
+    await _requestJson(
+      'POST',
+      '/rules',
+      body: {
+        'rules': [rule.toRulePayload()],
+      },
+    );
   }
 
   @override
@@ -79,6 +85,12 @@ class HttpDesktopService implements DesktopService {
   Future<void> startServices() async {
     await _ensureServerRunning();
     await _requestJson('POST', '/services/start');
+  }
+
+  @override
+  Future<void> restartServices() async {
+    await _ensureServerRunning();
+    await _requestJson('POST', '/services/restart');
   }
 
   @override

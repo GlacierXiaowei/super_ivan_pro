@@ -14,11 +14,7 @@ class ActiveTarget {
   final bool isGroup;
 
   Map<String, dynamic> toJson() {
-    return {
-      'display_name': displayName,
-      'talker': talker,
-      'is_group': isGroup,
-    };
+    return {'display_name': displayName, 'talker': talker, 'is_group': isGroup};
   }
 }
 
@@ -88,10 +84,7 @@ class DesktopArmState {
 }
 
 class RecentChatPreview {
-  const RecentChatPreview({
-    required this.label,
-    required this.talker,
-  });
+  const RecentChatPreview({required this.label, required this.talker});
 
   final String label;
   final String talker;
@@ -109,12 +102,20 @@ class RecentEventPreview {
   final String content;
 }
 
+class DesktopLogLine {
+  const DesktopLogLine({required this.source, required this.message});
+
+  final String source;
+  final String message;
+}
+
 class DesktopSnapshot {
   const DesktopSnapshot({
     required this.serviceStatusLabel,
     required this.activeTarget,
     required this.recentChats,
     required this.recentEvents,
+    required this.recentLogs,
     required this.mode,
     required this.rule,
     required this.armState,
@@ -139,6 +140,12 @@ class DesktopSnapshot {
           content: 'START',
         ),
       ],
+      recentLogs: [
+        DesktopLogLine(
+          source: 'wechat_automation.log',
+          message: 'rule_match rule=desktop_rule seq=1',
+        ),
+      ],
       mode: DesktopMode.normal,
       rule: DesktopRule(
         pattern: 'START',
@@ -156,19 +163,12 @@ class DesktopSnapshot {
   factory DesktopSnapshot.offline() {
     return const DesktopSnapshot(
       serviceStatusLabel: '本地服务未启动',
-      activeTarget: ActiveTarget(
-        displayName: '',
-        talker: '',
-        isGroup: false,
-      ),
+      activeTarget: ActiveTarget(displayName: '', talker: '', isGroup: false),
       recentChats: [],
       recentEvents: [],
+      recentLogs: [],
       mode: DesktopMode.normal,
-      rule: DesktopRule(
-        pattern: '',
-        replies: [],
-        cooldownMs: 0,
-      ),
+      rule: DesktopRule(pattern: '', replies: [], cooldownMs: 0),
       armState: DesktopArmState(
         enabled: false,
         maxTriggers: 1,
@@ -178,7 +178,8 @@ class DesktopSnapshot {
   }
 
   factory DesktopSnapshot.fromJson(Map<String, dynamic> json) {
-    final activeTarget = (json['active_target'] as Map?)?.cast<String, dynamic>();
+    final activeTarget = (json['active_target'] as Map?)
+        ?.cast<String, dynamic>();
     final recentEvents = ((json['recent_events'] as List?) ?? const [])
         .whereType<Map>()
         .map((item) => item.cast<String, dynamic>())
@@ -193,19 +194,29 @@ class DesktopSnapshot {
           ),
         )
         .toList();
-    final recentChats = ((json['recent_chats'] as List?) ?? const [])
-        .map((item) {
-          if (item is Map) {
-            final payload = item.cast<String, dynamic>();
-            return RecentChatPreview(
-              label: payload['label'] as String? ?? '',
-              talker: payload['talker'] as String? ?? '',
-            );
-          }
-          final label = '$item';
-          return RecentChatPreview(label: label, talker: label);
-        })
+    final recentLogs = ((json['recent_logs'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .map(
+          (item) => DesktopLogLine(
+            source: item['source'] as String? ?? '',
+            message: item['message'] as String? ?? '',
+          ),
+        )
         .toList();
+    final recentChats = ((json['recent_chats'] as List?) ?? const []).map((
+      item,
+    ) {
+      if (item is Map) {
+        final payload = item.cast<String, dynamic>();
+        return RecentChatPreview(
+          label: payload['label'] as String? ?? '',
+          talker: payload['talker'] as String? ?? '',
+        );
+      }
+      final label = '$item';
+      return RecentChatPreview(label: label, talker: label);
+    }).toList();
 
     return DesktopSnapshot(
       serviceStatusLabel: json['service_state'] as String? ?? 'running',
@@ -216,6 +227,7 @@ class DesktopSnapshot {
       ),
       recentChats: recentChats,
       recentEvents: recentEvents,
+      recentLogs: recentLogs,
       mode: json['mode'] == 'rapid' ? DesktopMode.rapid : DesktopMode.normal,
       rule: DesktopRule(
         pattern: json['rule_pattern'] as String? ?? '',
@@ -237,6 +249,7 @@ class DesktopSnapshot {
   final ActiveTarget activeTarget;
   final List<RecentChatPreview> recentChats;
   final List<RecentEventPreview> recentEvents;
+  final List<DesktopLogLine> recentLogs;
   final DesktopMode mode;
   final DesktopRule rule;
   final DesktopArmState armState;
@@ -246,6 +259,7 @@ class DesktopSnapshot {
     ActiveTarget? activeTarget,
     List<RecentChatPreview>? recentChats,
     List<RecentEventPreview>? recentEvents,
+    List<DesktopLogLine>? recentLogs,
     DesktopMode? mode,
     DesktopRule? rule,
     DesktopArmState? armState,
@@ -255,6 +269,7 @@ class DesktopSnapshot {
       activeTarget: activeTarget ?? this.activeTarget,
       recentChats: recentChats ?? this.recentChats,
       recentEvents: recentEvents ?? this.recentEvents,
+      recentLogs: recentLogs ?? this.recentLogs,
       mode: mode ?? this.mode,
       rule: rule ?? this.rule,
       armState: armState ?? this.armState,

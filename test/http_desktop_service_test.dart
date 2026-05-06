@@ -36,6 +36,12 @@ void main() {
                   'content': 'START',
                 },
               ],
+              'recent_logs': [
+                {
+                  'source': 'wechat_automation.log',
+                  'message': 'rule_match rule=desktop_rule seq=1',
+                },
+              ],
             }),
           );
         await request.response.close();
@@ -57,6 +63,11 @@ void main() {
     expect(snapshot.rule.replies, ['TEST', '第二条']);
     expect(snapshot.rule.cooldownMs, 800);
     expect(snapshot.recentEvents.single.chatName, '文件传输助手');
+    expect(snapshot.recentLogs.single.source, 'wechat_automation.log');
+    expect(
+      snapshot.recentLogs.single.message,
+      'rule_match rule=desktop_rule seq=1',
+    );
   });
 
   test('posts mode updates to the local service', () async {
@@ -114,11 +125,7 @@ void main() {
     );
 
     await service.saveRule(
-      DesktopRule(
-        pattern: 'START',
-        replies: ['TEST', '第二条'],
-        cooldownMs: 800,
-      ),
+      DesktopRule(pattern: 'START', replies: ['TEST', '第二条'], cooldownMs: 800),
     );
     await service.saveArmState(
       const DesktopArmState(
@@ -130,5 +137,34 @@ void main() {
 
     expect(receivedBodies[0], contains('"pattern":"START"'));
     expect(receivedBodies[1], contains('"enabled":true'));
+  });
+
+  test('posts service restart to the local service', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    var restartCalled = false;
+    server.listen((request) async {
+      if (request.method == 'POST' && request.uri.path == '/services/restart') {
+        restartCalled = true;
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write('{}');
+        await request.response.close();
+        return;
+      }
+
+      request.response.statusCode = 404;
+      await request.response.close();
+    });
+
+    final service = HttpDesktopService(
+      Uri.parse('http://${server.address.address}:${server.port}'),
+    );
+
+    await service.restartServices();
+
+    expect(restartCalled, isTrue);
   });
 }

@@ -53,6 +53,13 @@ def _event_to_payload(event: MessageEvent) -> dict[str, object]:
     }
 
 
+def _log_to_payload(source: str, message: str) -> dict[str, str]:
+    return {
+        "source": source,
+        "message": message,
+    }
+
+
 class BotProcessManager:
     def __init__(
         self,
@@ -176,6 +183,11 @@ class DesktopServiceApp:
             self._process_manager.start(self._runtime_config_path, self._rules_path)
             return HTTPStatus.OK, self._build_status(limit=20)
 
+        if normalized_method == "POST" and normalized_path == "/services/restart":
+            self._apply_runtime_mode_profile(str(self._store.load().get("mode", "normal")))
+            self._process_manager.restart(self._runtime_config_path, self._rules_path)
+            return HTTPStatus.OK, self._build_status(limit=20)
+
         if normalized_method == "POST" and normalized_path == "/services/stop":
             self._process_manager.stop()
             return HTTPStatus.OK, self._build_status(limit=20)
@@ -251,6 +263,10 @@ class DesktopServiceApp:
             events = self._fetch_recent_events(limit=limit, chat=chat)
             return HTTPStatus.OK, {"events": events}
 
+        if normalized_method == "GET" and normalized_path == "/logs/recent":
+            limit = max(int(query.get("limit", ["120"])[0]), 1)
+            return HTTPStatus.OK, {"logs": self._fetch_recent_logs(limit=limit)}
+
         if normalized_method == "POST" and normalized_path == "/mode":
             body = payload if isinstance(payload, dict) else {}
             mode = str(body.get("mode", "")).strip().lower()
@@ -291,6 +307,7 @@ class DesktopServiceApp:
             "match_mode": str(first_rule.get("match_mode", "regex")),
             "max_triggers": arm_state["max_triggers"],
             "remaining_triggers": arm_state["remaining_triggers"],
+            "recent_logs": self._fetch_recent_logs(limit=80),
         }
         self._store.save(status)
         return status
@@ -364,6 +381,38 @@ class DesktopServiceApp:
             if isinstance(fallback, list):
                 return [item for item in fallback if isinstance(item, dict)]
             return []
+
+    def _fetch_recent_logs(self, limit: int) -> list[dict[str, str]]:
+        logs_dir = self._runtime_root / "logs"
+        candidates = [
+            logs_dir / "wechat_automation.log",
+            logs_dir / "live_bot" / "stdout.log",
+            logs_dir / "live_bot" / "stderr.log",
+        ]
+
+        entries: list[dict[str, str]] = []
+        for path in candidates:
+            entries.extend(_read_log_file_tail(path, limit=limit))
+        return entries[-limit:]
+
+
+def _read_log_file_tail(path: Path, limit: int) -> list[dict[str, str]]:
+    if not path.exists() or not path.is_file():
+        return []
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+    source = path.name
+    if path.parent.name == "live_bot":
+        source = f"live_bot/{path.name}"
+    return [
+        _log_to_payload(source, line.strip())
+        for line in lines[-limit:]
+        if line.strip()
+    ]
 
 
 def _collect_recent_chats(events: list[dict[str, object]]) -> list[str]:

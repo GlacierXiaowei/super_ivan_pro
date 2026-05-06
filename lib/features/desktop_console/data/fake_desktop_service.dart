@@ -9,6 +9,7 @@ class FakeDesktopService implements DesktopService {
   DesktopRule? lastSavedRule;
   DesktopArmState? lastSavedArmState;
   DesktopMode lastSavedMode = DesktopMode.normal;
+  int restartCallCount = 0;
 
   @override
   Future<DesktopSnapshot> loadSnapshot() async => _snapshot;
@@ -39,6 +40,12 @@ class FakeDesktopService implements DesktopService {
 
   @override
   Future<void> startServices() async {
+    _snapshot = _snapshot.copyWith(serviceStatusLabel: 'running');
+  }
+
+  @override
+  Future<void> restartServices() async {
+    restartCallCount += 1;
     _snapshot = _snapshot.copyWith(serviceStatusLabel: 'running');
   }
 

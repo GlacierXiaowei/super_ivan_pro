@@ -40,4 +40,18 @@ void main() {
     await controller.setArmed(false);
     expect(service.lastSavedArmState?.enabled, isFalse);
   });
+
+  test(
+    'restarts services through the service and refreshes snapshot',
+    () async {
+      final service = FakeDesktopService.seed();
+      final controller = DesktopConsoleController(service);
+
+      await controller.initialize();
+      await controller.restartServices();
+
+      expect(service.restartCallCount, 1);
+      expect(controller.snapshot?.serviceStatusLabel, 'running');
+    },
+  );
 }

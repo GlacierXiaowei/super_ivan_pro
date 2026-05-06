@@ -6,9 +6,7 @@ import 'package:super_ivan_pro/features/desktop_console/presentation/desktop_con
 void main() {
   testWidgets('renders editable target and rule fields', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: DesktopConsolePage(service: FakeDesktopService.seed()),
-      ),
+      MaterialApp(home: DesktopConsolePage(service: FakeDesktopService.seed())),
     );
     await tester.pumpAndSettle();
 
@@ -18,11 +16,19 @@ void main() {
     expect(find.text('保存对象'), findsOneWidget);
     expect(find.text('Arm'), findsOneWidget);
     expect(find.text('Disarm'), findsOneWidget);
+    expect(find.text('重启服务'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
 
     expect(find.text('保存规则'), findsOneWidget);
     expect(find.text('模式配置'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('rule_match rule=desktop_rule seq=1'),
+      findsWidgets,
+    );
   });
 }

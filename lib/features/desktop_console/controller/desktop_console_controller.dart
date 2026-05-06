@@ -8,9 +8,14 @@ class DesktopConsoleController extends ChangeNotifier {
   final DesktopService _service;
   DesktopSnapshot? snapshot;
   bool isBusy = false;
+  bool _disposed = false;
 
   Future<void> initialize() async {
-    snapshot = await _service.loadSnapshot();
+    final nextSnapshot = await _service.loadSnapshot();
+    if (_disposed) {
+      return;
+    }
+    snapshot = nextSnapshot;
     notifyListeners();
   }
 
@@ -47,7 +52,8 @@ class DesktopConsoleController extends ChangeNotifier {
           isGroup: snapshot?.activeTarget.isGroup ?? false,
         ),
       );
-      final currentArmState = snapshot?.armState ?? DesktopSnapshot.seed().armState;
+      final currentArmState =
+          snapshot?.armState ?? DesktopSnapshot.seed().armState;
       await _service.saveArmState(
         currentArmState.copyWith(
           maxTriggers: maxTriggers,
@@ -60,7 +66,8 @@ class DesktopConsoleController extends ChangeNotifier {
 
   Future<void> setArmed(bool enabled, {int? maxTriggers}) async {
     await _runBusy(() async {
-      final currentArmState = snapshot?.armState ?? DesktopSnapshot.seed().armState;
+      final currentArmState =
+          snapshot?.armState ?? DesktopSnapshot.seed().armState;
       final nextMaxTriggers = maxTriggers ?? currentArmState.maxTriggers;
       await _service.saveArmState(
         currentArmState.copyWith(
@@ -87,6 +94,13 @@ class DesktopConsoleController extends ChangeNotifier {
     });
   }
 
+  Future<void> restartServices() async {
+    await _runBusy(() async {
+      await _service.restartServices();
+      await initialize();
+    });
+  }
+
   Future<void> stopServices() async {
     await _runBusy(() async {
       await _service.stopServices();
@@ -100,8 +114,16 @@ class DesktopConsoleController extends ChangeNotifier {
     try {
       await action();
     } finally {
-      isBusy = false;
-      notifyListeners();
+      if (!_disposed) {
+        isBusy = false;
+        notifyListeners();
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

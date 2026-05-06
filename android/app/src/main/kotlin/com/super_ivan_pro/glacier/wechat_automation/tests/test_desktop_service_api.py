@@ -253,6 +253,48 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(len(events_payload["events"]), 2)
             self.assertEqual(events_payload["events"][0]["talker_name"], "文件传输助手")
 
+    def test_recent_logs_endpoint_and_status_include_log_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            logs_dir = runtime_root / "logs"
+            (logs_dir / "wechat_automation.log").write_text(
+                "2026-05-06 INFO old line\n"
+                "2026-05-06 INFO rule_match rule=desktop_rule seq=1\n",
+                encoding="utf-8",
+            )
+            live_bot_dir = logs_dir / "live_bot"
+            live_bot_dir.mkdir(parents=True, exist_ok=True)
+            (live_bot_dir / "stderr.log").write_text(
+                "2026-05-06 ERROR chat_input_not_focused\n",
+                encoding="utf-8",
+            )
+
+            status_code, logs_payload = app.handle_json("GET", "/logs/recent?limit=2")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(
+                [item["message"] for item in logs_payload["logs"]],
+                [
+                    "2026-05-06 INFO rule_match rule=desktop_rule seq=1",
+                    "2026-05-06 ERROR chat_input_not_focused",
+                ],
+            )
+            self.assertEqual(logs_payload["logs"][0]["source"], "wechat_automation.log")
+
+            status_code, status = app.handle_json("GET", "/status")
+            self.assertEqual(status_code, 200)
+            self.assertIn("recent_logs", status)
+            self.assertGreaterEqual(len(status["recent_logs"]), 2)
+
     def test_rule_update_restarts_running_bot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -289,6 +331,30 @@ class DesktopServiceApiTest(unittest.TestCase):
             status_code, updated = app.handle_json("POST", "/rules", {"rules": payload})
             self.assertEqual(status_code, 200)
             self.assertEqual(updated["rules"][0]["talker"], "wxid_target")
+            self.assertEqual(len(popen_factory.calls), 2)
+            self.assertTrue(popen_factory.processes[0].terminated)
+            app.handle_json("POST", "/services/stop")
+
+    def test_restart_endpoint_restarts_running_bot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            popen_factory = FakePopenFactory()
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=popen_factory,
+            )
+
+            app.handle_json("POST", "/services/start")
+            self.assertEqual(len(popen_factory.calls), 1)
+
+            status_code, restarted = app.handle_json("POST", "/services/restart")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(restarted["service_state"], "running")
             self.assertEqual(len(popen_factory.calls), 2)
             self.assertTrue(popen_factory.processes[0].terminated)
             app.handle_json("POST", "/services/stop")

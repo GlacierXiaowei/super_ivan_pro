@@ -38,21 +38,36 @@ def ensure_runtime_files(runtime_root: Path, repo_root: Path) -> dict[str, Path]
     rules_path = resolved_runtime_root / "config" / "rules.local.json"
     arm_state_path = resolved_runtime_root / "config" / "arm_state.local.json"
 
-    source_runtime_path = resolved_repo_root / "config" / "runtime.local.json"
-    source_rules_path = resolved_repo_root / "config" / "rules.local.json"
-    source_arm_state_path = resolved_repo_root / "config" / "arm_state.local.json"
+    source_runtime_path = _first_existing(
+        [
+            resolved_repo_root / "config" / "runtime.local.json",
+            resolved_repo_root / "config" / "runtime.example.json",
+        ]
+    )
+    source_rules_path = _first_existing(
+        [
+            resolved_repo_root / "config" / "rules.local.json",
+            resolved_repo_root / "config" / "rules.example.json",
+        ]
+    )
+    source_arm_state_path = _first_existing(
+        [
+            resolved_repo_root / "config" / "arm_state.local.json",
+            resolved_repo_root / "config" / "arm_state.example.json",
+        ]
+    )
 
     rules_path.parent.mkdir(parents=True, exist_ok=True)
     (resolved_runtime_root / "logs").mkdir(parents=True, exist_ok=True)
 
     if not rules_path.exists():
-        if source_rules_path.exists():
+        if source_rules_path is not None:
             shutil.copyfile(source_rules_path, rules_path)
         else:
             rules_path.write_text("[]", encoding="utf-8")
 
     if not arm_state_path.exists():
-        if source_arm_state_path.exists():
+        if source_arm_state_path is not None:
             shutil.copyfile(source_arm_state_path, arm_state_path)
         else:
             arm_state_path.write_text(
@@ -79,7 +94,7 @@ def ensure_runtime_files(runtime_root: Path, repo_root: Path) -> dict[str, Path]
                 existing_runtime_payload = loaded
         except json.JSONDecodeError:
             existing_runtime_payload = {}
-    elif source_runtime_path.exists():
+    elif source_runtime_path is not None:
         loaded = json.loads(source_runtime_path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
             existing_runtime_payload = loaded
@@ -101,6 +116,13 @@ def ensure_runtime_files(runtime_root: Path, repo_root: Path) -> dict[str, Path]
         "arm_state": arm_state_path,
         "logs": resolved_runtime_root / "logs",
     }
+
+
+def _first_existing(paths: list[Path]) -> Path | None:
+    for path in paths:
+        if path.exists():
+            return path
+    return None
 
 
 def _normalize_runtime_payload(
