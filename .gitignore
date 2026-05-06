@@ -34,6 +34,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local WeChat automation runtime state.
+android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/*.local.json
+android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/*.local.jsonl
+wx4py_send_audit.jsonl
+
 # Symbolication related
 app.*.symbols
 
