@@ -19,13 +19,29 @@ void main() {
     expect(find.text('重启服务'), findsOneWidget);
     expect(find.text('消息源: running'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.scrollUntilVisible(
+      find.byType(CheckboxListTile).first,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
 
+    expect(find.text('任意消息触发'), findsOneWidget);
+    expect(find.text('回复延迟毫秒'), findsOneWidget);
     expect(find.text('保存规则'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('模式配置'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('模式配置'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.scrollUntilVisible(
+      find.textContaining('rule_match rule=desktop_rule seq=1'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(
       find.textContaining('rule_match rule=desktop_rule seq=1'),

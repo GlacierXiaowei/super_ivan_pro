@@ -1,6 +1,6 @@
 enum DesktopMode { normal, rapid }
 
-enum DesktopMatchMode { exact, contains, regex }
+enum DesktopMatchMode { exact, contains, regex, any }
 
 class ActiveTarget {
   const ActiveTarget({
@@ -23,6 +23,7 @@ class DesktopRule {
     required this.pattern,
     required this.replies,
     required this.cooldownMs,
+    this.replyDelayMs = 0,
     this.matchMode = DesktopMatchMode.regex,
     this.talker = '',
     this.isGroup = false,
@@ -31,6 +32,7 @@ class DesktopRule {
   final String pattern;
   final List<String> replies;
   final int cooldownMs;
+  final int replyDelayMs;
   final DesktopMatchMode matchMode;
   final String talker;
   final bool isGroup;
@@ -42,10 +44,11 @@ class DesktopRule {
       'talker': talker,
       'sender': '',
       'chat_scope': isGroup ? 'group' : 'private',
-      'type': 'text',
+      'type': matchMode == DesktopMatchMode.any ? 'unknown' : 'text',
       'pattern': pattern,
       'replies': replies,
       'cooldown_ms': cooldownMs,
+      'reply_delay_ms': replyDelayMs,
       'match_mode': matchMode.name,
     };
   }
@@ -144,11 +147,7 @@ class DesktopSnapshot {
           talker: 'filehelper',
           isGroup: false,
         ),
-        RecentChatPreview(
-          label: '多姆斯利普🌙',
-          talker: '多姆斯利普🌙',
-          isGroup: true,
-        ),
+        RecentChatPreview(label: '多姆斯利普🌙', talker: '多姆斯利普🌙', isGroup: true),
       ],
       recentEvents: [
         RecentEventPreview(
@@ -261,7 +260,10 @@ class DesktopSnapshot {
             .map((item) => '$item')
             .toList(),
         cooldownMs: json['cooldown_ms'] as int? ?? 0,
+        replyDelayMs: json['reply_delay_ms'] as int? ?? 0,
         matchMode: _parseMatchMode(json['match_mode'] as String?),
+        talker: activeTarget?['talker'] as String? ?? '',
+        isGroup: activeTarget?['is_group'] as bool? ?? false,
       ),
       armState: DesktopArmState(
         enabled: json['armed'] as bool? ?? false,
@@ -312,6 +314,7 @@ class DesktopSnapshot {
     return switch (value) {
       'exact' => DesktopMatchMode.exact,
       'contains' => DesktopMatchMode.contains,
+      'any' => DesktopMatchMode.any,
       _ => DesktopMatchMode.regex,
     };
   }

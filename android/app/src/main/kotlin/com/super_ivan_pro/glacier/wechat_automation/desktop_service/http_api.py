@@ -393,6 +393,7 @@ class DesktopServiceApp:
             "recent_chats": recent_chats,
             "replies": list(first_rule.get("replies", [])),
             "cooldown_ms": int(first_rule.get("cooldown_ms", 0)),
+            "reply_delay_ms": int(first_rule.get("reply_delay_ms", 0)),
             "match_mode": str(first_rule.get("match_mode", "regex")),
             "max_triggers": arm_state["max_triggers"],
             "remaining_triggers": arm_state["remaining_triggers"],

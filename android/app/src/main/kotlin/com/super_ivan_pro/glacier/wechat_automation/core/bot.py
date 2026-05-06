@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import time
+from typing import Callable
 
 from .arm_state import ArmStateStore
 from .dedupe import CooldownGate, SequenceDeduper
@@ -16,11 +18,13 @@ class WeChatAutomationBot:
         dispatcher: SendDispatcher,
         logger: logging.Logger,
         arm_state_store: ArmStateStore,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self._rules = rules
         self._dispatcher = dispatcher
         self._logger = logger
         self._arm_state_store = arm_state_store
+        self._sleeper = sleeper
         self._deduper = SequenceDeduper()
         self._cooldown = CooldownGate()
 
@@ -65,6 +69,22 @@ class WeChatAutomationBot:
 
             self._deduper.mark_seen(dedupe_key)
             self._logger.info("rule_match rule=%s seq=%s", rule.id, event.seq)
+            if rule.reply_delay_ms > 0:
+                self._logger.info(
+                    "reply_delay_start rule=%s seq=%s delay_ms=%s",
+                    rule.id,
+                    event.seq,
+                    rule.reply_delay_ms,
+                )
+                self._sleeper(rule.reply_delay_ms / 1000.0)
+                delayed_state = self._arm_state_store.read()
+                if not delayed_state.enabled:
+                    self._logger.info(
+                        "event_skip seq=%s reason=not_armed_after_delay state_reason=%s",
+                        event.seq,
+                        delayed_state.reason,
+                    )
+                    return
             report = self._dispatcher.dispatch(rule, event)
             if report.sent == len(rule.replies):
                 updated = self._arm_state_store.record_success()

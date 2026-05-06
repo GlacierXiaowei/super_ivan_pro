@@ -18,10 +18,13 @@ from core.models import MessageEvent, MessageType, Rule, RuntimeConfig  # noqa: 
 
 
 class MemorySender:
-    def __init__(self) -> None:
+    def __init__(self, calls: list[str] | None = None) -> None:
         self.sent: list[str] = []
+        self.calls = calls
 
     def send_text(self, context: MessageEvent, message: str) -> None:
+        if self.calls is not None:
+            self.calls.append(f"send:{message}")
         self.sent.append(message)
 
 
@@ -39,7 +42,7 @@ def build_event(seq: str) -> MessageEvent:
     )
 
 
-def build_rule() -> Rule:
+def build_rule(reply_delay_ms: int = 0) -> Rule:
     return Rule.from_dict(
         {
             "id": "filehelper_start_sequence",
@@ -51,6 +54,7 @@ def build_rule() -> Rule:
             "match_mode": "exact",
             "pattern": "START",
             "cooldown_ms": 0,
+            "reply_delay_ms": reply_delay_ms,
             "replies": ["TEST", "第二条"],
         }
     )
@@ -92,6 +96,26 @@ class ArmedBotTest(unittest.TestCase):
             self.assertEqual(sender.sent, ["TEST", "第二条"])
             self.assertFalse(store.read().enabled)
             self.assertEqual(store.read().reason, "budget_exhausted")
+
+    def test_reply_delay_runs_before_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            calls: list[str] = []
+            store = ArmStateStore(Path(tmp) / "arm_state.json")
+            store.arm(max_triggers=1)
+            sender = MemorySender(calls)
+            dispatcher = SendDispatcher(sender, RuntimeConfig(), logging.getLogger("test"))
+            bot = WeChatAutomationBot(
+                [build_rule(reply_delay_ms=150)],
+                dispatcher,
+                logging.getLogger("test"),
+                store,
+                sleeper=lambda seconds: calls.append(f"sleep:{seconds}"),
+            )
+
+            bot.process(build_event("evt-1"))
+
+            self.assertEqual(calls[0], "sleep:0.15")
+            self.assertEqual(calls[1], "send:TEST")
 
 
 if __name__ == "__main__":

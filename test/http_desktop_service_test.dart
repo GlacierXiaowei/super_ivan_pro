@@ -41,11 +41,7 @@ void main() {
                 },
               ],
               'recent_chats': [
-                {
-                  'label': '文件传输助手',
-                  'talker': 'filehelper',
-                  'is_group': false,
-                },
+                {'label': '文件传输助手', 'talker': 'filehelper', 'is_group': false},
               ],
               'recent_logs': [
                 {
@@ -170,7 +166,12 @@ void main() {
     );
 
     await service.saveRule(
-      DesktopRule(pattern: 'START', replies: ['TEST', '第二条'], cooldownMs: 800),
+      DesktopRule(
+        pattern: 'START',
+        replies: ['TEST', '第二条'],
+        cooldownMs: 800,
+        replyDelayMs: 250,
+      ),
     );
     await service.saveArmState(
       const DesktopArmState(
@@ -181,8 +182,61 @@ void main() {
     );
 
     expect(receivedBodies[0], contains('"pattern":"START"'));
+    expect(receivedBodies[0], contains('"reply_delay_ms":250'));
     expect(receivedBodies[1], contains('"enabled":true'));
   });
+
+  test(
+    'posts arbitrary trigger rule as any match mode and unknown type',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+
+      String? body;
+      server.listen((request) async {
+        if (request.method == 'POST' && request.uri.path == '/rules') {
+          body = await utf8.decoder.bind(request).join();
+          request.response
+            ..statusCode = 200
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                'service_state': 'running',
+                'watcher_state': 'running',
+                'armed': false,
+                'mode': 'normal',
+                'rule_pattern': '',
+                'replies': ['收到'],
+                'cooldown_ms': 0,
+                'match_mode': 'any',
+              }),
+            );
+          await request.response.close();
+          return;
+        }
+
+        request.response.statusCode = 404;
+        await request.response.close();
+      });
+
+      final service = HttpDesktopService(
+        Uri.parse('http://${server.address.address}:${server.port}'),
+      );
+
+      await service.saveRule(
+        const DesktopRule(
+          pattern: '',
+          replies: ['收到'],
+          cooldownMs: 0,
+          matchMode: DesktopMatchMode.any,
+          replyDelayMs: 0,
+        ),
+      );
+
+      expect(body, contains('"match_mode":"any"'));
+      expect(body, contains('"type":"unknown"'));
+    },
+  );
 
   test('posts service restart to the local service', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

@@ -9,6 +9,7 @@ class MatchMode(str, Enum):
     EXACT = "exact"
     CONTAINS = "contains"
     REGEX = "regex"
+    ANY = "any"
 
 
 class ChatScope(str, Enum):
@@ -98,6 +99,7 @@ class Rule:
     pattern: str
     cooldown_ms: int
     replies: list[str]
+    reply_delay_ms: int = 0
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Rule":
@@ -112,6 +114,7 @@ class Rule:
             pattern=str(payload.get("pattern") or ""),
             cooldown_ms=int(payload.get("cooldown_ms") or 0),
             replies=[str(item) for item in payload.get("replies") or []],
+            reply_delay_ms=int(payload.get("reply_delay_ms") or 0),
         )
 
 

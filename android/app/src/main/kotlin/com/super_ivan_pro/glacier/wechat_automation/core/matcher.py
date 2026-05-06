@@ -32,6 +32,8 @@ def match_rule(message: MessageEvent, rule: Rule) -> MatchResult:
         return MatchResult(False, "chat_scope_mismatch")
     if not _matches_message_type(message, rule):
         return MatchResult(False, "type_mismatch")
+    if rule.match_mode == MatchMode.ANY:
+        return MatchResult(True, "matched")
 
     content = message.content or ""
     pattern = rule.pattern or ""

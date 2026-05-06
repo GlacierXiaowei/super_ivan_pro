@@ -75,6 +75,68 @@ class MatcherChatScopeTest(unittest.TestCase):
         self.assertFalse(result.matched)
         self.assertEqual(result.reason, "chat_scope_mismatch")
 
+    def test_any_match_mode_accepts_any_content_after_scope_and_type_match(self) -> None:
+        rule = Rule.from_dict(
+            {
+                "id": "any_message",
+                "enabled": True,
+                "talker": "测试群",
+                "sender": "",
+                "type": "unknown",
+                "chat_scope": "group",
+                "match_mode": "any",
+                "pattern": "",
+                "cooldown_ms": 0,
+                "replies": ["OK"],
+            }
+        )
+        message = MessageEvent(
+            seq="3",
+            timestamp="3",
+            talker="123@chatroom",
+            talker_name="测试群",
+            is_chat_room=True,
+            sender="Alice",
+            sender_name="Alice",
+            message_type=MessageType.EMOJI,
+            content="",
+        )
+
+        result = match_rule(message, rule)
+        self.assertTrue(result.matched)
+        self.assertEqual(result.reason, "matched")
+
+    def test_any_match_mode_still_rejects_wrong_talker(self) -> None:
+        rule = Rule.from_dict(
+            {
+                "id": "any_message",
+                "enabled": True,
+                "talker": "目标群",
+                "sender": "",
+                "type": "unknown",
+                "chat_scope": "group",
+                "match_mode": "any",
+                "pattern": "",
+                "cooldown_ms": 0,
+                "replies": ["OK"],
+            }
+        )
+        message = MessageEvent(
+            seq="4",
+            timestamp="4",
+            talker="123@chatroom",
+            talker_name="其他群",
+            is_chat_room=True,
+            sender="Alice",
+            sender_name="Alice",
+            message_type=MessageType.IMAGE,
+            content="",
+        )
+
+        result = match_rule(message, rule)
+        self.assertFalse(result.matched)
+        self.assertEqual(result.reason, "talker_mismatch")
+
 
 if __name__ == "__main__":
     unittest.main()

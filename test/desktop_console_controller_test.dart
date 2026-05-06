@@ -20,12 +20,34 @@ void main() {
       replies: ['第一条', '第二条'],
       cooldownMs: 120,
       maxTriggers: 3,
+      matchMode: DesktopMatchMode.regex,
+      replyDelayMs: 250,
     );
 
     expect(service.lastSavedTarget?.displayName, '多姆斯利普🌙');
     expect(service.lastSavedMode, DesktopMode.rapid);
     expect(service.lastSavedRule?.pattern, 'GO');
+    expect(service.lastSavedRule?.replyDelayMs, 250);
     expect(service.lastSavedArmState?.maxTriggers, 3);
+  });
+
+  test('saves arbitrary trigger rule through the service', () async {
+    final service = FakeDesktopService.seed();
+    final controller = DesktopConsoleController(service);
+
+    await controller.initialize();
+    await controller.saveRule(
+      pattern: '',
+      replies: ['收到'],
+      cooldownMs: 0,
+      maxTriggers: 5,
+      matchMode: DesktopMatchMode.any,
+      replyDelayMs: 0,
+    );
+
+    expect(service.lastSavedRule?.matchMode, DesktopMatchMode.any);
+    expect(service.lastSavedRule?.toRulePayload()['match_mode'], 'any');
+    expect(service.lastSavedRule?.toRulePayload()['type'], 'unknown');
   });
 
   test('arms and disarms through the service', () async {

@@ -40,6 +40,8 @@ class DesktopConsoleController extends ChangeNotifier {
     required List<String> replies,
     required int cooldownMs,
     required int maxTriggers,
+    required DesktopMatchMode matchMode,
+    required int replyDelayMs,
   }) async {
     await _runBusy(() async {
       final ruleSnapshot = await _service.saveRule(
@@ -47,6 +49,8 @@ class DesktopConsoleController extends ChangeNotifier {
           pattern: pattern,
           replies: replies,
           cooldownMs: cooldownMs,
+          replyDelayMs: replyDelayMs,
+          matchMode: matchMode,
           talker: snapshot?.activeTarget.talker ?? '',
           isGroup: snapshot?.activeTarget.isGroup ?? false,
         ),

@@ -666,3 +666,68 @@ flutter build windows
 6. Windows 打包成功生成：
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
 7. 已确认打包产物中的 Python assets 包含本次 `chat_filter` 代码。
+
+---
+
+## 2026-05-06 任意消息触发机制
+
+### 本轮目标
+
+本轮先解决“指定对象发任意消息就立刻回复指定消息”的核心能力，并顺带支持可选回复延迟。
+
+### 本轮新增实现
+
+1. Python 规则新增 `match_mode = any`：
+   - 仍然先检查 `enabled`
+   - 仍然先检查 `talker`
+   - 仍然先检查 `sender`
+   - 仍然先检查 `chat_scope`
+   - 仍然先检查 `type`
+   - 通过这些边界后，不再检查 `pattern`
+2. Flutter 规则配置区新增“任意消息触发”开关：
+   - 开启后保存 `match_mode = any`
+   - 开启后保存 `type = unknown`
+   - `unknown` 继续沿用现有语义：允许任意消息类型
+   - 因此文本、图片、表情、视频等消息都可以触发
+3. Flutter 规则配置区新增“回复延迟毫秒”：
+   - 默认 `0`
+   - 匹配成功后、真实发送前等待
+   - 如果延迟期间用户手动 Disarm，bot 会在延迟后重新检查 armed 状态并跳过发送
+4. 现有安全边界不变：
+   - 仍受 `armed` 控制
+   - 仍受最大触发次数控制
+   - 仍受监听对象控制
+   - 仍受冷却时间控制
+
+### 表情包相关影响
+
+这不是表情包解析修复，但能绕过“表情包中文名不稳定 / 内容为空”的匹配问题：
+
+1. 如果规则是 `match_mode = any` 且 `type = unknown`，表情包不需要依赖 `content`。
+2. 只要消息源能把这条消息作为事件吐出来，并且 talker/scope 匹配，就能触发。
+3. 具体表情包资源识别、预览、中文名准确性仍然属于后续单独问题。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_matcher_chat_scope.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_bot_armed_current_chat.py -v
+flutter test test/desktop_console_controller_test.dart test/http_desktop_service_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. Python 新增任意触发测试先红后绿。
+2. Python 新增回复延迟测试先红后绿。
+3. Flutter 新增规则保存 payload 测试先红后绿。
+4. Python 全量测试总计 `43/43` 通过。
+5. `flutter analyze` 无问题。
+6. `flutter test` 通过。
+7. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
