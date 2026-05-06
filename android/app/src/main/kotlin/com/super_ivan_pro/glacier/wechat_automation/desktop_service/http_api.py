@@ -261,19 +261,19 @@ class DesktopServiceApp:
             runtime = load_runtime_config(self._runtime_config_path)
             if self._ensure_source_available(runtime):
                 self._process_manager.start(self._runtime_config_path, self._rules_path)
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "POST" and normalized_path == "/services/restart":
             self._apply_runtime_mode_profile(str(self._store.load().get("mode", "normal")))
             runtime = load_runtime_config(self._runtime_config_path)
             if self._ensure_source_available(runtime):
                 self._process_manager.restart(self._runtime_config_path, self._rules_path)
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "POST" and normalized_path == "/services/stop":
             self._process_manager.stop()
             self._source_process_manager.stop()
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "POST" and normalized_path == "/targets/active":
             body = payload if isinstance(payload, dict) else {}
@@ -298,7 +298,7 @@ class DesktopServiceApp:
             )
             if self._process_manager.is_running():
                 self._process_manager.restart(self._runtime_config_path, self._rules_path)
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "GET" and normalized_path == "/rules":
             return HTTPStatus.OK, {"rules": self._read_rules()}
@@ -317,7 +317,7 @@ class DesktopServiceApp:
             )
             if self._process_manager.is_running():
                 self._process_manager.restart(self._runtime_config_path, self._rules_path)
-            return HTTPStatus.OK, {"rules": rules}
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "GET" and normalized_path == "/arm-state":
             return HTTPStatus.OK, self._arm_state_payload()
@@ -338,7 +338,7 @@ class DesktopServiceApp:
                 store.arm(max_triggers=max_triggers)
             else:
                 store.disarm(reason="manual_disarm")
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "GET" and normalized_path == "/events/recent":
             limit = max(int(query.get("limit", ["50"])[0]), 1)
@@ -365,15 +365,18 @@ class DesktopServiceApp:
             self._apply_runtime_mode_profile(mode)
             if self._process_manager.is_running():
                 self._process_manager.restart(self._runtime_config_path, self._rules_path)
-            return HTTPStatus.OK, self._build_status(limit=20)
+            return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         return HTTPStatus.NOT_FOUND, {"ok": False, "error": "route not found"}
 
-    def _build_status(self, limit: int) -> dict[str, Any]:
+    def _build_status(self, limit: int, refresh_events: bool = True) -> dict[str, Any]:
         state = self._store.load()
         arm_state = self._arm_state_payload()
         rules = self._read_rules()
-        events = self._fetch_recent_events(limit=limit, chat="")
+        if refresh_events:
+            events = self._fetch_recent_events(limit=limit, chat="")
+        else:
+            events = _cached_recent_events(state)
         recent_chats = _collect_recent_chats(events)
         first_rule = _first_enabled_rule(rules)
 
@@ -384,6 +387,7 @@ class DesktopServiceApp:
             "armed": arm_state["armed"],
             "mode": state.get("mode", "normal"),
             "rule_pattern": str(first_rule.get("pattern", "")),
+            "rules": rules,
             "active_target": state.get("active_target", {"talker": "", "display_name": "", "is_group": False}),
             "recent_events": events,
             "recent_chats": recent_chats,
@@ -527,13 +531,30 @@ def _read_log_file_tail(path: Path, limit: int) -> list[dict[str, str]]:
     ]
 
 
-def _collect_recent_chats(events: list[dict[str, object]]) -> list[str]:
-    unique: list[str] = []
+def _collect_recent_chats(events: list[dict[str, object]]) -> list[dict[str, object]]:
+    unique: list[dict[str, object]] = []
+    seen: set[str] = set()
     for event in events:
-        talker_name = str(event.get("talker_name", "")).strip()
-        if talker_name and talker_name not in unique:
-            unique.append(talker_name)
+        talker = str(event.get("talker", "")).strip()
+        label = str(event.get("talker_name", "") or event.get("chat_name", "") or talker).strip()
+        if not talker or talker in seen:
+            continue
+        seen.add(talker)
+        unique.append(
+            {
+                "label": label or talker,
+                "talker": talker,
+                "is_group": bool(event.get("is_chat_room", False)),
+            }
+        )
     return unique
+
+
+def _cached_recent_events(state: dict[str, Any]) -> list[dict[str, object]]:
+    cached = state.get("recent_events", [])
+    if not isinstance(cached, list):
+        return []
+    return [item for item in cached if isinstance(item, dict)]
 
 
 def _first_enabled_rule(rules: list[dict[str, Any]]) -> dict[str, Any]:

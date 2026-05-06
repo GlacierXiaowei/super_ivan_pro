@@ -461,3 +461,110 @@ flutter build windows
 2. 仍然依赖本机 Python、`wechat-decrypt` 源码目录和其 Python 依赖，不是完全独立的单 exe。
 3. 自动发送仍受 armed 状态控制；测试期间默认应先保持 `armed=false`，避免误触发。
 4. 表情包识别仍取决于 `wechat-decrypt` 能否正确解析 type=47 / emoji 资源，目前日志里仍可能出现 emoji 查询失败，这不是本轮修复范围。
+
+---
+
+## 2026-05-06 桌面端启动链路复查与按钮等待优化
+
+### 本轮复查结论
+
+1. “只打开 app”当前能懒启动的是本地 HTTP wrapper：
+   - Flutter 访问 `127.0.0.1:18090/status` 失败时，会拉起 `scripts/desktop_service.py`。
+   - 这一步只保证 desktop service HTTP API 可用。
+2. `wechat-decrypt` 和 `run_bot.py` 不会在 app 打开时自动启动：
+   - 它们仍由 `POST /services/start` 或 `POST /services/restart` 触发。
+   - 如果 runtime 配置了 `wechat_decrypt_root` 且 watcher 不健康，desktop service 会先启动 `wechat-decrypt`，再启动 `run_bot.py`。
+3. 安全边界仍成立：
+   - `启动服务`、`重启服务`、`切换模式`、`保存对象`、`保存规则` 本身不会直接发送消息。
+   - 真正发送仍要求后续新消息匹配规则，并且 `arm_state.enabled = true`。
+   - 本轮运行态检查时 `/status` 显示 `armed=false`。
+
+### 本轮修复
+
+1. Flutter `DesktopService` 写操作现在返回 `DesktopSnapshot`：
+   - `saveTarget`
+   - `saveRule`
+   - `saveArmState`
+   - `saveMode`
+   - `startServices`
+   - `restartServices`
+   - `stopServices`
+2. Flutter controller 不再在每次按钮操作后额外调用一次 `GET /status`。
+3. `HttpDesktopService` 不再在每个 POST 前预先 `GET /status`：
+   - 现在直接 POST。
+   - 只有连接失败时才启动本地 desktop service 并重试。
+4. Python POST 状态接口返回完整状态快照，但不强制刷新 watcher 历史：
+   - 避免按钮动作被同步 watcher 拉取拖慢。
+   - 消息和日志仍由页面 1 秒轮询刷新。
+5. `POST /rules` 现在也返回完整状态，并保留 `rules` 字段，避免半截 payload 造成前端解析陷阱。
+6. 模式切换控件在 busy 状态下会禁用，避免与其他按钮操作交错。
+7. 最近会话现在回传真实结构：
+   - `label`
+   - `talker`
+   - `is_group`
+   点击最近会话保存监听对象时，不再从显示文本猜 `talker` 和群聊状态。
+
+### 文档新增
+
+1. 新增/重写 `README.md`：
+   - 当前桌面链路
+   - 本机运行前提
+   - 安全边界
+   - 常用验证命令
+   - 关键代码位置
+2. 新增 `AGENTS.md`：
+   - 后续 agent 工作边界
+   - 微信发送安全规则
+   - runtime 模型
+   - 验证命令
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. Python 测试总计 `36/36` 通过。
+2. Flutter analyze 无问题。
+3. Flutter 全量测试通过。
+4. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+
+### 本轮实际冷启动验证
+
+已执行：
+
+1. 停止当前监听 `127.0.0.1:18090` 的 Python desktop service 进程。
+2. 确认端口不再监听。
+3. 启动打包产物 `build/windows/x64/runner/Release/super_ivan_pro.exe`。
+4. 再次请求 `GET http://127.0.0.1:18090/status`。
+
+结果：
+
+1. app 成功从 Flutter assets 拉起 `desktop_service.py`。
+2. 新 desktop service 监听进程命令行为：
+   - `python .../data/flutter_assets/.../wechat_automation/scripts/desktop_service.py --host 127.0.0.1 --port 18090`
+3. `/status` 返回：
+   - `service_state = stopped`
+   - `watcher_state = running`
+   - `watcher_error = ""`
+   - `armed = false`
+   - `mode = rapid`
+4. 结论：只打开 app 能自动恢复本地 HTTP wrapper；不会自动启动 `run_bot.py`，也不会 armed 或发送消息。
+
+### 当前边界
+
+1. 本轮没有改成“打开 app 自动启动 bot”，因为这会扩大运行时副作用；当前仍需要点击“启动服务”才会启动完整托管链路。
+2. 本轮没有操作微信窗口，也没有 armed 或触发真实发送。
+3. 本轮没有修改本地测试配置文件作为交付内容：
+   - `arm_state.local.json`
+   - `rules.local.json`
+   - `runtime.local.json`
+4. `wechat-decrypt` 仍依赖本机源码目录和 Python 依赖，不是 bundled Python/runtime。

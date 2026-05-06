@@ -52,56 +52,78 @@ class HttpDesktopService implements DesktopService {
   }
 
   @override
-  Future<void> saveTarget(ActiveTarget target) async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/targets/active', body: target.toJson());
+  Future<DesktopSnapshot> saveTarget(ActiveTarget target) async {
+    final payload = await _requestJsonWithLaunchRetry(
+      'POST',
+      '/targets/active',
+      body: target.toJson(),
+    );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> saveRule(DesktopRule rule) async {
-    await _ensureServerRunning();
-    await _requestJson(
+  Future<DesktopSnapshot> saveRule(DesktopRule rule) async {
+    final payload = await _requestJsonWithLaunchRetry(
       'POST',
       '/rules',
       body: {
         'rules': [rule.toRulePayload()],
       },
     );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> saveArmState(DesktopArmState state) async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/arm-state', body: state.toJson());
+  Future<DesktopSnapshot> saveArmState(DesktopArmState state) async {
+    final payload = await _requestJsonWithLaunchRetry(
+      'POST',
+      '/arm-state',
+      body: state.toJson(),
+    );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> saveMode(DesktopMode mode) async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/mode', body: {'mode': mode.name});
+  Future<DesktopSnapshot> saveMode(DesktopMode mode) async {
+    final payload = await _requestJsonWithLaunchRetry(
+      'POST',
+      '/mode',
+      body: {'mode': mode.name},
+    );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> startServices() async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/services/start');
+  Future<DesktopSnapshot> startServices() async {
+    final payload = await _requestJsonWithLaunchRetry(
+      'POST',
+      '/services/start',
+    );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> restartServices() async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/services/restart');
+  Future<DesktopSnapshot> restartServices() async {
+    final payload = await _requestJsonWithLaunchRetry(
+      'POST',
+      '/services/restart',
+    );
+    return DesktopSnapshot.fromJson(payload);
   }
 
   @override
-  Future<void> stopServices() async {
-    await _ensureServerRunning();
-    await _requestJson('POST', '/services/stop');
+  Future<DesktopSnapshot> stopServices() async {
+    final payload = await _requestJsonWithLaunchRetry('POST', '/services/stop');
+    return DesktopSnapshot.fromJson(payload);
   }
 
-  Future<void> _ensureServerRunning() async {
+  Future<Map<String, dynamic>> _requestJsonWithLaunchRetry(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
     try {
-      await _requestJson('GET', '/status');
+      return await _requestJson(method, path, body: body);
     } on SocketException {
       final launcher = _launcher;
       if (launcher == null) {
@@ -109,10 +131,7 @@ class HttpDesktopService implements DesktopService {
       }
       await launcher.start();
       await _waitUntilAvailable();
-    } on HttpException {
-      if (_launcher == null) {
-        return;
-      }
+      return _requestJson(method, path, body: body);
     }
   }
 

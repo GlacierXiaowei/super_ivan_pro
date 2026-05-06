@@ -77,14 +77,13 @@ class _TargetPanelState extends State<TargetPanel> {
                         ? null
                         : () async {
                             _controller.text = chat.label;
-                            final isGroup = chat.talker.endsWith('@chatroom');
                             setState(() {
-                              _isGroup = isGroup;
+                              _isGroup = chat.isGroup;
                             });
                             await widget.onSaveTarget(
                               displayName: chat.label,
                               talker: chat.talker,
-                              isGroup: isGroup,
+                              isGroup: chat.isGroup,
                             );
                           },
                   ),

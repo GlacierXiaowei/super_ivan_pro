@@ -83,7 +83,11 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
                 onSaveRule: controller.saveRule,
               ),
               const SizedBox(height: 16),
-              ModePanel(snapshot: snapshot, onModeChanged: controller.setMode),
+              ModePanel(
+                snapshot: snapshot,
+                isBusy: controller.isBusy,
+                onModeChanged: controller.setMode,
+              ),
               const SizedBox(height: 16),
               EventsPanel(snapshot: snapshot),
             ],

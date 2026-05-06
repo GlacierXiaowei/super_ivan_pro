@@ -15,8 +15,7 @@ class DesktopConsoleController extends ChangeNotifier {
     if (_disposed) {
       return;
     }
-    snapshot = nextSnapshot;
-    notifyListeners();
+    _setSnapshot(nextSnapshot);
   }
 
   Future<void> saveTarget({
@@ -25,14 +24,14 @@ class DesktopConsoleController extends ChangeNotifier {
     required bool isGroup,
   }) async {
     await _runBusy(() async {
-      await _service.saveTarget(
+      final nextSnapshot = await _service.saveTarget(
         ActiveTarget(
           displayName: displayName,
           talker: talker,
           isGroup: isGroup,
         ),
       );
-      await initialize();
+      snapshot = nextSnapshot;
     });
   }
 
@@ -43,7 +42,7 @@ class DesktopConsoleController extends ChangeNotifier {
     required int maxTriggers,
   }) async {
     await _runBusy(() async {
-      await _service.saveRule(
+      final ruleSnapshot = await _service.saveRule(
         DesktopRule(
           pattern: pattern,
           replies: replies,
@@ -52,15 +51,14 @@ class DesktopConsoleController extends ChangeNotifier {
           isGroup: snapshot?.activeTarget.isGroup ?? false,
         ),
       );
-      final currentArmState =
-          snapshot?.armState ?? DesktopSnapshot.seed().armState;
-      await _service.saveArmState(
+      final currentArmState = ruleSnapshot.armState;
+      final nextSnapshot = await _service.saveArmState(
         currentArmState.copyWith(
           maxTriggers: maxTriggers,
           remainingTriggers: maxTriggers,
         ),
       );
-      await initialize();
+      snapshot = nextSnapshot;
     });
   }
 
@@ -69,42 +67,38 @@ class DesktopConsoleController extends ChangeNotifier {
       final currentArmState =
           snapshot?.armState ?? DesktopSnapshot.seed().armState;
       final nextMaxTriggers = maxTriggers ?? currentArmState.maxTriggers;
-      await _service.saveArmState(
+      final nextSnapshot = await _service.saveArmState(
         currentArmState.copyWith(
           enabled: enabled,
           maxTriggers: nextMaxTriggers,
           remainingTriggers: nextMaxTriggers,
         ),
       );
-      await initialize();
+      snapshot = nextSnapshot;
     });
   }
 
   Future<void> setMode(DesktopMode mode) async {
     await _runBusy(() async {
-      await _service.saveMode(mode);
-      await initialize();
+      snapshot = await _service.saveMode(mode);
     });
   }
 
   Future<void> startServices() async {
     await _runBusy(() async {
-      await _service.startServices();
-      await initialize();
+      snapshot = await _service.startServices();
     });
   }
 
   Future<void> restartServices() async {
     await _runBusy(() async {
-      await _service.restartServices();
-      await initialize();
+      snapshot = await _service.restartServices();
     });
   }
 
   Future<void> stopServices() async {
     await _runBusy(() async {
-      await _service.stopServices();
-      await initialize();
+      snapshot = await _service.stopServices();
     });
   }
 
@@ -125,5 +119,10 @@ class DesktopConsoleController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     super.dispose();
+  }
+
+  void _setSnapshot(DesktopSnapshot nextSnapshot) {
+    snapshot = nextSnapshot;
+    notifyListeners();
   }
 }

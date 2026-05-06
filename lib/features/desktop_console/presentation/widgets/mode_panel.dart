@@ -6,10 +6,12 @@ class ModePanel extends StatelessWidget {
   const ModePanel({
     super.key,
     required this.snapshot,
+    required this.isBusy,
     required this.onModeChanged,
   });
 
   final DesktopSnapshot snapshot;
+  final bool isBusy;
   final ValueChanged<DesktopMode> onModeChanged;
 
   @override
@@ -28,12 +30,16 @@ class ModePanel extends StatelessWidget {
               ChoiceChip(
                 label: const Text('普通模式'),
                 selected: snapshot.mode == DesktopMode.normal,
-                onSelected: (_) => onModeChanged(DesktopMode.normal),
+                onSelected: isBusy
+                    ? null
+                    : (_) => onModeChanged(DesktopMode.normal),
               ),
               ChoiceChip(
                 label: const Text('极速模式'),
                 selected: snapshot.mode == DesktopMode.rapid,
-                onSelected: (_) => onModeChanged(DesktopMode.rapid),
+                onSelected: isBusy
+                    ? null
+                    : (_) => onModeChanged(DesktopMode.rapid),
               ),
             ],
           ),

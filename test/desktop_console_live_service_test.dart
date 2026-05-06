@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_ivan_pro/features/desktop_console/controller/desktop_console_controller.dart';
 import 'package:super_ivan_pro/features/desktop_console/data/fake_desktop_service.dart';
+import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.dart';
 
 class StubDesktopService extends FakeDesktopService {
   StubDesktopService() : super.seed();
@@ -9,15 +10,15 @@ class StubDesktopService extends FakeDesktopService {
   bool stopped = false;
 
   @override
-  Future<void> startServices() async {
+  Future<DesktopSnapshot> startServices() async {
     started = true;
-    await super.startServices();
+    return super.startServices();
   }
 
   @override
-  Future<void> stopServices() async {
+  Future<DesktopSnapshot> stopServices() async {
     stopped = true;
-    await super.stopServices();
+    return super.stopServices();
   }
 }
 

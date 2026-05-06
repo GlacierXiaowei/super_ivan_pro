@@ -56,6 +56,19 @@ class FailingWatcher:
         raise ConnectionRefusedError("watcher offline")
 
 
+class CountingWatcher:
+    calls = 0
+
+    def __init__(self, runtime: RuntimeConfig) -> None:
+        self.runtime = runtime
+
+    def fetch_recent_events(self, limit: int = 50, chat: str = "") -> list[MessageEvent]:
+        _ = limit
+        _ = chat
+        type(self).calls += 1
+        return []
+
+
 class FakeProcess:
     def __init__(self) -> None:
         self.returncode = None
@@ -180,7 +193,9 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertIn("recent_chats", status)
             self.assertEqual(status["max_triggers"], 1)
             self.assertEqual(status["remaining_triggers"], 1)
-            self.assertEqual(status["recent_chats"][0], "文件传输助手")
+            self.assertEqual(status["recent_chats"][0]["label"], "文件传输助手")
+            self.assertEqual(status["recent_chats"][0]["talker"], "filehelper")
+            self.assertFalse(status["recent_chats"][0]["is_group"])
 
             status_code, updated = app.handle_json(
                 "POST",
@@ -275,6 +290,32 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(status_code, 200)
             self.assertEqual(len(events_payload["events"]), 2)
             self.assertEqual(events_payload["events"][0]["talker_name"], "文件传输助手")
+
+    def test_post_responses_return_cached_status_without_refreshing_watcher(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            CountingWatcher.calls = 0
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=CountingWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            status_code, initial = app.handle_json("GET", "/status")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(CountingWatcher.calls, 1)
+            self.assertEqual(initial["recent_events"], [])
+
+            status_code, updated = app.handle_json("POST", "/mode", {"mode": "rapid"})
+            self.assertEqual(status_code, 200)
+            self.assertEqual(updated["mode"], "rapid")
+            self.assertIn("service_state", updated)
+            self.assertIn("recent_events", updated)
+            self.assertEqual(CountingWatcher.calls, 1)
 
     def test_recent_logs_endpoint_and_status_include_log_lines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

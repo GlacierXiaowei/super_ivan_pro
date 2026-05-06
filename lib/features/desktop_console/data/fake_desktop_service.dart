@@ -15,42 +15,49 @@ class FakeDesktopService implements DesktopService {
   Future<DesktopSnapshot> loadSnapshot() async => _snapshot;
 
   @override
-  Future<void> saveMode(DesktopMode mode) async {
+  Future<DesktopSnapshot> saveMode(DesktopMode mode) async {
     lastSavedMode = mode;
     _snapshot = _snapshot.copyWith(mode: mode);
+    return _snapshot;
   }
 
   @override
-  Future<void> saveRule(DesktopRule rule) async {
+  Future<DesktopSnapshot> saveRule(DesktopRule rule) async {
     lastSavedRule = rule;
     _snapshot = _snapshot.copyWith(rule: rule);
+    return _snapshot;
   }
 
   @override
-  Future<void> saveArmState(DesktopArmState state) async {
+  Future<DesktopSnapshot> saveArmState(DesktopArmState state) async {
     lastSavedArmState = state;
     _snapshot = _snapshot.copyWith(armState: state);
+    return _snapshot;
   }
 
   @override
-  Future<void> saveTarget(ActiveTarget target) async {
+  Future<DesktopSnapshot> saveTarget(ActiveTarget target) async {
     lastSavedTarget = target;
     _snapshot = _snapshot.copyWith(activeTarget: target);
+    return _snapshot;
   }
 
   @override
-  Future<void> startServices() async {
+  Future<DesktopSnapshot> startServices() async {
     _snapshot = _snapshot.copyWith(serviceStatusLabel: 'running');
+    return _snapshot;
   }
 
   @override
-  Future<void> restartServices() async {
+  Future<DesktopSnapshot> restartServices() async {
     restartCallCount += 1;
     _snapshot = _snapshot.copyWith(serviceStatusLabel: 'running');
+    return _snapshot;
   }
 
   @override
-  Future<void> stopServices() async {
+  Future<DesktopSnapshot> stopServices() async {
     _snapshot = _snapshot.copyWith(serviceStatusLabel: 'stopped');
+    return _snapshot;
   }
 }

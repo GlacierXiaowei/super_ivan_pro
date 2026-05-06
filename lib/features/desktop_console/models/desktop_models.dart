@@ -84,10 +84,15 @@ class DesktopArmState {
 }
 
 class RecentChatPreview {
-  const RecentChatPreview({required this.label, required this.talker});
+  const RecentChatPreview({
+    required this.label,
+    required this.talker,
+    required this.isGroup,
+  });
 
   final String label;
   final String talker;
+  final bool isGroup;
 }
 
 class RecentEventPreview {
@@ -134,8 +139,16 @@ class DesktopSnapshot {
         isGroup: false,
       ),
       recentChats: [
-        RecentChatPreview(label: '文件传输助手', talker: 'filehelper'),
-        RecentChatPreview(label: '多姆斯利普🌙', talker: '多姆斯利普🌙'),
+        RecentChatPreview(
+          label: '文件传输助手',
+          talker: 'filehelper',
+          isGroup: false,
+        ),
+        RecentChatPreview(
+          label: '多姆斯利普🌙',
+          talker: '多姆斯利普🌙',
+          isGroup: true,
+        ),
       ],
       recentEvents: [
         RecentEventPreview(
@@ -218,10 +231,15 @@ class DesktopSnapshot {
         return RecentChatPreview(
           label: payload['label'] as String? ?? '',
           talker: payload['talker'] as String? ?? '',
+          isGroup: payload['is_group'] as bool? ?? false,
         );
       }
       final label = '$item';
-      return RecentChatPreview(label: label, talker: label);
+      return RecentChatPreview(
+        label: label,
+        talker: label,
+        isGroup: label.endsWith('@chatroom'),
+      );
     }).toList();
 
     return DesktopSnapshot(

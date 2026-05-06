@@ -33,9 +33,18 @@ void main() {
               },
               'recent_events': [
                 {
+                  'talker': 'filehelper',
                   'talker_name': '文件传输助手',
                   'sender_name': '我',
+                  'is_chat_room': false,
                   'content': 'START',
+                },
+              ],
+              'recent_chats': [
+                {
+                  'label': '文件传输助手',
+                  'talker': 'filehelper',
+                  'is_group': false,
                 },
               ],
               'recent_logs': [
@@ -64,6 +73,8 @@ void main() {
     expect(snapshot.watcherError, 'watcher offline');
     expect(snapshot.mode, DesktopMode.rapid);
     expect(snapshot.activeTarget.displayName, '文件传输助手');
+    expect(snapshot.recentChats.single.talker, 'filehelper');
+    expect(snapshot.recentChats.single.isGroup, isFalse);
     expect(snapshot.rule.replies, ['TEST', '第二条']);
     expect(snapshot.rule.cooldownMs, 800);
     expect(snapshot.recentEvents.single.chatName, '文件传输助手');
@@ -79,13 +90,29 @@ void main() {
     addTearDown(server.close);
 
     String? body;
+    var statusGetCount = 0;
     server.listen((request) async {
+      if (request.method == 'GET' && request.uri.path == '/status') {
+        statusGetCount += 1;
+        request.response.statusCode = 500;
+        await request.response.close();
+        return;
+      }
+
       if (request.method == 'POST' && request.uri.path == '/mode') {
         body = await utf8.decoder.bind(request).join();
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.json
-          ..write('{}');
+          ..write(
+            jsonEncode({
+              'service_state': 'running',
+              'watcher_state': 'running',
+              'armed': false,
+              'mode': 'rapid',
+              'rule_pattern': 'START',
+            }),
+          );
         await request.response.close();
         return;
       }
@@ -98,9 +125,11 @@ void main() {
       Uri.parse('http://${server.address.address}:${server.port}'),
     );
 
-    await service.saveMode(DesktopMode.rapid);
+    final snapshot = await service.saveMode(DesktopMode.rapid);
 
     expect(body, contains('"mode":"rapid"'));
+    expect(snapshot.mode, DesktopMode.rapid);
+    expect(statusGetCount, 0);
   });
 
   test('posts rule and arm state updates to the local service', () async {
@@ -115,7 +144,19 @@ void main() {
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.json
-          ..write('{}');
+          ..write(
+            jsonEncode({
+              'service_state': 'running',
+              'watcher_state': 'running',
+              'armed': request.uri.path == '/arm-state',
+              'mode': 'normal',
+              'rule_pattern': 'START',
+              'replies': ['TEST', '第二条'],
+              'cooldown_ms': 800,
+              'max_triggers': 1,
+              'remaining_triggers': 1,
+            }),
+          );
         await request.response.close();
         return;
       }
@@ -154,7 +195,15 @@ void main() {
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.json
-          ..write('{}');
+          ..write(
+            jsonEncode({
+              'service_state': 'running',
+              'watcher_state': 'running',
+              'armed': false,
+              'mode': 'normal',
+              'rule_pattern': 'START',
+            }),
+          );
         await request.response.close();
         return;
       }
@@ -167,8 +216,9 @@ void main() {
       Uri.parse('http://${server.address.address}:${server.port}'),
     );
 
-    await service.restartServices();
+    final snapshot = await service.restartServices();
 
     expect(restartCalled, isTrue);
+    expect(snapshot.serviceStatusLabel, 'running');
   });
 }
