@@ -783,3 +783,50 @@ flutter build windows
 5. `flutter test` 通过。
 6. Windows 打包成功生成：
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+
+---
+
+## 2026-05-06 表情中文描述触发修复
+
+### 本轮定位
+
+1. 当前真实事件中，表情包会以 `type = emoji` 进入，且部分表情会带有中文 `content`，例如 `额3`、`嗯嗯2`。
+2. 桌面端普通关键词规则保存为 `type = text`、`match_mode = regex`。
+3. 旧 matcher 会在内容匹配前先做消息类型检查，因此这类事件被 `type_mismatch` 跳过。
+4. 这不是中文正则本身失效，而是 `text` 规则没有允许带中文描述的 `emoji` 事件参与关键词匹配。
+
+### 本轮修复
+
+1. `matcher.py` 现在允许 `type = text` 的关键词规则匹配带有非空中文描述的 `emoji` 事件。
+2. 原有 talker、sender、chat_scope、pattern、cooldown、armed、最大触发次数等边界不变。
+3. 空内容表情包仍不会因为 `type = text` 规则直接通过类型检查。
+4. 规则配置面板 helper 文案已更新，提示普通模式也会匹配表情包解析出的中文描述。
+
+### 当前边界
+
+1. 这次修的是“表情包事件已经提供中文 content 时，中文关键词可以触发”。
+2. 这不是完整表情包资源识别；`wechat-decrypt` 日志里的 `emoji 查询失败` / `rich type=47 失败` 仍属于后续独立问题。
+3. 已保存的 `type = text` 规则可以沿用，不需要为了这个修复改成本地 `rules.local.json`。
+4. 需要重启 live bot 或重新启动打包 app 中的服务，让新的 Python matcher 代码生效。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_matcher_chat_scope.py -v
+flutter test test/rule_panel_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. 新增 `type=text` 中文关键词匹配 `type=emoji` 表情中文描述的回归测试先红后绿。
+2. Python 全量测试总计 `45/45` 通过。
+3. `flutter analyze` 无问题。
+4. `flutter test` 通过。
+5. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`

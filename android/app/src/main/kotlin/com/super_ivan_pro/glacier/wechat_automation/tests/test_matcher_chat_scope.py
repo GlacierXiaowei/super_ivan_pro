@@ -137,6 +137,37 @@ class MatcherChatScopeTest(unittest.TestCase):
         self.assertFalse(result.matched)
         self.assertEqual(result.reason, "talker_mismatch")
 
+    def test_text_keyword_rule_matches_emoji_content_label(self) -> None:
+        rule = Rule.from_dict(
+            {
+                "id": "emoji_label_keyword",
+                "enabled": True,
+                "talker": "测试群",
+                "sender": "",
+                "type": "text",
+                "chat_scope": "group",
+                "match_mode": "regex",
+                "pattern": "额3",
+                "cooldown_ms": 0,
+                "replies": ["OK"],
+            }
+        )
+        message = MessageEvent(
+            seq="5",
+            timestamp="5",
+            talker="123@chatroom",
+            talker_name="测试群",
+            is_chat_room=True,
+            sender="Alice",
+            sender_name="Alice",
+            message_type=MessageType.EMOJI,
+            content="额3",
+        )
+
+        result = match_rule(message, rule)
+        self.assertTrue(result.matched)
+        self.assertEqual(result.reason, "matched")
+
 
 if __name__ == "__main__":
     unittest.main()

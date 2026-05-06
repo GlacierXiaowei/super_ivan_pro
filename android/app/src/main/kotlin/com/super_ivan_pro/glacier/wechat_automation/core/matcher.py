@@ -8,7 +8,12 @@ from .models import ChatScope, MatchMode, MatchResult, MessageEvent, MessageType
 def _matches_message_type(message: MessageEvent, rule: Rule) -> bool:
     if rule.message_type == MessageType.UNKNOWN:
         return True
-    return message.message_type == rule.message_type
+    if message.message_type == rule.message_type:
+        return True
+    # WeChat custom stickers may expose a Chinese text label through wechat-decrypt.
+    if rule.message_type == MessageType.TEXT and message.message_type == MessageType.EMOJI:
+        return bool((message.content or "").strip())
+    return False
 
 
 def _matches_chat_scope(message: MessageEvent, rule: Rule) -> bool:
