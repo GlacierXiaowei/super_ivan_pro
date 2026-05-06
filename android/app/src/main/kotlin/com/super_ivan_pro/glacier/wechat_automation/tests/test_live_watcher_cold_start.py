@@ -14,8 +14,8 @@ from core.watcher_adapter import WechatDecryptHistoryWatcher
 
 
 class StubHistoryWatcher(WechatDecryptHistoryWatcher):
-    def __init__(self, responses: list[list[dict]]) -> None:
-        super().__init__(RuntimeConfig())
+    def __init__(self, responses: list[list[dict]], chat_filter: str = "") -> None:
+        super().__init__(RuntimeConfig(), chat_filter=chat_filter)
         self._responses = [list(batch) for batch in responses]
         self.calls: list[dict[str, str]] = []
 
@@ -62,6 +62,45 @@ class LiveWatcherColdStartTest(unittest.TestCase):
             [
                 {"limit": "1"},
                 {"since": "1777539000", "limit": "200"},
+            ],
+        )
+
+    def test_cold_start_and_live_fetch_use_chat_filter_when_configured(self) -> None:
+        existing_event = {
+            "timestamp": 1777539000,
+            "chat": "filehelper",
+            "username": "filehelper",
+            "is_group": False,
+            "sender": "",
+            "type": "文本",
+            "content": "START",
+        }
+        new_event = {
+            "timestamp": 1777539005,
+            "chat": "filehelper",
+            "username": "filehelper",
+            "is_group": False,
+            "sender": "",
+            "type": "文本",
+            "content": "NEXT",
+        }
+        watcher = StubHistoryWatcher(
+            responses=[
+                [existing_event],
+                [new_event],
+            ],
+            chat_filter="filehelper",
+        )
+
+        events = watcher._fetch_events()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["content"], "NEXT")
+        self.assertEqual(
+            watcher.calls,
+            [
+                {"limit": "1", "chat": "filehelper"},
+                {"since": "1777539000", "limit": "200", "chat": "filehelper"},
             ],
         )
 

@@ -568,3 +568,101 @@ flutter build windows
    - `rules.local.json`
    - `runtime.local.json`
 4. `wechat-decrypt` 仍依赖本机源码目录和 Python 依赖，不是 bundled Python/runtime。
+
+---
+
+## 2026-05-06 极速链路速度复查
+
+### 本轮只读复查边界
+
+1. 当前本地仓库位于 `main`，且与 `origin/main` 同步。
+2. 复查时 `GET http://127.0.0.1:18090/status` 返回：
+   - `service_state = running`
+   - `watcher_state = running`
+   - `watcher_error = ""`
+   - `armed = true`
+   - `mode = rapid`
+3. 因为 `armed = true`，本轮没有做会触发真实发送的主动联调，只做源码、配置和日志层面的速度分析。
+
+### 当前极速链路结论
+
+1. 当前 rapid runtime 已经生效：
+   - `poll_interval_ms = 20`
+   - `history_limit = 50`
+   - `inter_message_delay_ms = 0`
+   - `retry_count = 0`
+   - `current_chat_fast_send = true`
+2. `wechat-decrypt` 的核心消息发现链路是：
+   - 每 `30ms` 轮询 WAL/DB 的 `mtime`
+   - 发现变化后执行 session DB 全量解密和 WAL patch
+   - 查询会话状态后追加到 `messages_log`
+   - 通过 `/api/history` 和 `/stream` 暴露给外部
+3. 当前日志中常见 `wechat-decrypt` 处理耗时约为 `30-60ms`，其中解密和查询是主要成本。
+4. 当前 bot 侧每 `20ms` 请求一次 `/api/history?since=...&limit=50`，拿到事件后再做 normalize、match、dispatch。
+5. `current_chat_fast_send = true` 时，发送路径已经是剪贴板快速发送：
+   - 要求微信输入框已经获得焦点
+   - 直接 `Ctrl+A` / `Delete` / `Ctrl+V` / `Enter`
+   - 不再走 wx4py 的慢速输入框查找路径
+
+### 关于“只收某个人消息是否更快”
+
+1. `wechat-decrypt` 的 `/api/history?chat=...` 只是在已经生成的 `messages_log` 上做内存过滤。
+2. 这不能减少 `wechat-decrypt` 的 WAL/DB 检测、解密和查询成本，因此不会显著缩短消息源发现延迟。
+3. 但它可以减少 bot 侧拿到的无关事件，降低 normalize/match/log 噪音，也能降低高消息量时 backlog 风险。
+
+### 建议的第二步优化方向
+
+优先做小改动、安全收益：
+
+1. 让 bot 的 live poll 支持 active target chat 过滤：
+   - watcher 请求 `/api/history` 时带 `chat=<active_talker>`
+   - bot 侧更早跳过非目标事件
+   - 预期收益主要是减少干扰和积压，不是突破消息源解密延迟
+2. 在日志里加入毫秒级耗时标记：
+   - 记录 `event_received_ms`
+   - 记录 `rule_match_ms`
+   - 记录 `dispatch_success_ms`
+   - 后续真实测试可以明确区分“消息源慢”“bot 轮询慢”“发送慢”
+
+更大改动、后续再评估：
+
+1. 改为消费 `wechat-decrypt` 已有 `/stream` SSE，而不是 bot 继续 HTTP 轮询。
+2. 预期可以省掉最多约 `20ms` 的 bot 轮询等待和 HTTP 轮询开销。
+3. 但 SSE 需要处理断线重连、冷启动跳旧消息、去重和测试覆盖，改动风险高于目标 chat 过滤。
+
+### 本轮已实施的小优化
+
+已先实现低风险的 active target chat 过滤：
+
+1. `WechatDecryptHistoryWatcher` 新增可选 `chat_filter`。
+2. 冷启动预热请求和 live 轮询请求都会在配置了过滤对象时带上：
+   - `/api/history?limit=1&chat=<talker>`
+   - `/api/history?since=<timestamp>&limit=<limit>&chat=<talker>`
+3. `run_bot.py` 会从 enabled rules 中推导 live chat filter：
+   - 如果所有 enabled rules 都指向同一个非空 `talker`，启用过滤。
+   - 如果没有 enabled rule、存在空 talker、或多个 enabled rules 指向不同 talker，则不启用过滤，避免误丢消息。
+4. 这不会改变 matcher 的最终安全判断；即使消息源返回了额外消息，原有 `talker/sender/type/pattern` 规则仍然继续生效。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_live_watcher_cold_start.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_run_bot_live_filter.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. 新增 watcher chat filter 回归测试先红后绿。
+2. 新增 `run_bot.py` live filter 推导测试先红后绿。
+3. Python 全量测试总计 `40/40` 通过。
+4. `flutter analyze` 无问题。
+5. `flutter test` 通过。
+6. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+7. 已确认打包产物中的 Python assets 包含本次 `chat_filter` 代码。
