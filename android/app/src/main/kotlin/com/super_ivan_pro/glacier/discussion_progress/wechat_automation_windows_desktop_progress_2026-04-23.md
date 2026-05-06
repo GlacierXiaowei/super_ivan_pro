@@ -830,3 +830,71 @@ flutter build windows
 4. `flutter test` 通过。
 5. Windows 打包成功生成：
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+
+---
+
+## 2026-05-07 历史群成员 ID 查询
+
+### 本轮目标
+
+解决“目标成员在监听期间没有新发言，但历史群聊里发过言，能否拿到稳定 sender ID”的问题。
+
+### 本轮新增实现
+
+1. 新增 `core/history_sender_search.py`：
+   - 从 `wechat-decrypt` 的历史 message DB cache 中读取指定群聊表。
+   - 通过 `real_sender_id -> Name2Id.user_name` 解析群成员真实 sender ID。
+   - 聚合候选成员的最近发言时间、最近消息片段和历史发言条数。
+   - 如果缺少 contact cache，会尝试用 `all_keys.json` 临时解密 `contact/contact.db`，提高按昵称/备注搜索的成功率。
+2. Python desktop service 新增：
+   - `GET /history/senders?chat=<chatroom>&query=<keyword>&limit=<n>`
+   - 返回候选字段：
+     - `sender`
+     - `sender_name`
+     - `last_timestamp`
+     - `last_content`
+     - `message_count`
+3. Flutter 模型和服务层新增：
+   - `HistorySenderCandidate`
+   - `DesktopService.searchHistorySenders(...)`
+   - `HttpDesktopService` 调用 `/history/senders`
+4. Flutter UI 新增：
+   - “历史群成员搜索”
+   - 输入昵称/备注/ID 关键字后从当前群聊历史发言中查找候选人。
+   - 点击“使用”后保存为当前规则的 `sender` 过滤。
+   - 支持“清除成员过滤”。
+5. 规则配置区新增“群成员 ID（可选）”字段，允许手动填写或查看当前 sender 过滤。
+6. `pubspec.yaml` 已把 `history_sender_search.py` 加入 Windows 打包 assets。
+
+### 当前边界
+
+1. 只有目标成员在该群历史消息里发过言，才能通过历史消息拿到 sender ID。
+2. `sender` 过滤是群内成员过滤；群聊本身仍由 `talker = xxx@chatroom` 控制。
+3. 昵称/备注可能因不同微信账号而不同；最终保存和匹配用的是 `sender` 原始 ID。
+4. 如果 message cache 尚未由 `wechat-decrypt` 生成，历史查询可能返回空；启动消息源并等待 warmup 后再查更可靠。
+5. 本轮没有操作微信窗口，也没有 armed 或触发真实发送。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_history_sender_search.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+flutter test test/http_desktop_service_test.dart test/desktop_console_controller_test.dart test/desktop_console_page_test.dart test/rule_panel_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. 新增历史 sender 查询测试通过。
+2. Python 全量测试总计 `47/47` 通过。
+3. `flutter analyze` 无问题。
+4. `flutter test` 通过。
+5. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+6. 已确认打包产物包含：
+   - `data/flutter_assets/.../core/history_sender_search.py`

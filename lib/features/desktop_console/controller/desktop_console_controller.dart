@@ -42,6 +42,7 @@ class DesktopConsoleController extends ChangeNotifier {
     required int maxTriggers,
     required DesktopMatchMode matchMode,
     required int replyDelayMs,
+    required String sender,
   }) async {
     await _runBusy(() async {
       final ruleSnapshot = await _service.saveRule(
@@ -53,6 +54,8 @@ class DesktopConsoleController extends ChangeNotifier {
           matchMode: matchMode,
           talker: snapshot?.activeTarget.talker ?? '',
           isGroup: snapshot?.activeTarget.isGroup ?? false,
+          sender: sender,
+          senderName: snapshot?.rule.senderName ?? '',
         ),
       );
       final currentArmState = ruleSnapshot.armState;
@@ -63,6 +66,25 @@ class DesktopConsoleController extends ChangeNotifier {
         ),
       );
       snapshot = nextSnapshot;
+    });
+  }
+
+  Future<List<HistorySenderCandidate>> searchHistorySenders({
+    required String chat,
+    required String query,
+  }) {
+    return _service.searchHistorySenders(chat: chat, query: query, limit: 20);
+  }
+
+  Future<void> setRuleSenderFilter({
+    required String sender,
+    required String senderName,
+  }) async {
+    await _runBusy(() async {
+      final currentRule = snapshot?.rule ?? DesktopSnapshot.seed().rule;
+      snapshot = await _service.saveRule(
+        currentRule.copyWith(sender: sender, senderName: senderName),
+      );
     });
   }
 

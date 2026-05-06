@@ -22,6 +22,7 @@ void main() {
                       required maxTriggers,
                       required matchMode,
                       required replyDelayMs,
+                      required sender,
                     }) async {},
               ),
             ),

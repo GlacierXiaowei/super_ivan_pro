@@ -75,6 +75,8 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
                 snapshot: snapshot,
                 isBusy: controller.isBusy,
                 onSaveTarget: controller.saveTarget,
+                onSearchHistorySenders: controller.searchHistorySenders,
+                onSelectSender: controller.setRuleSenderFilter,
               ),
               const SizedBox(height: 16),
               RulePanel(

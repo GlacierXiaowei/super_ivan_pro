@@ -22,6 +22,7 @@ void main() {
       maxTriggers: 3,
       matchMode: DesktopMatchMode.regex,
       replyDelayMs: 250,
+      sender: '',
     );
 
     expect(service.lastSavedTarget?.displayName, '多姆斯利普🌙');
@@ -43,11 +44,32 @@ void main() {
       maxTriggers: 5,
       matchMode: DesktopMatchMode.any,
       replyDelayMs: 0,
+      sender: '',
     );
 
     expect(service.lastSavedRule?.matchMode, DesktopMatchMode.any);
     expect(service.lastSavedRule?.toRulePayload()['match_mode'], 'any');
     expect(service.lastSavedRule?.toRulePayload()['type'], 'unknown');
+  });
+
+  test('saves selected history sender as rule sender filter', () async {
+    final service = FakeDesktopService.seed();
+    final controller = DesktopConsoleController(service);
+
+    await controller.initialize();
+    final candidates = await controller.searchHistorySenders(
+      chat: '123456@chatroom',
+      query: 'Alice',
+    );
+    await controller.setRuleSenderFilter(
+      sender: candidates.single.sender,
+      senderName: candidates.single.senderName,
+    );
+
+    expect(candidates.single.sender, 'wxid_alice');
+    expect(service.lastSavedRule?.sender, 'wxid_alice');
+    expect(service.lastSavedRule?.senderName, 'Alice Remark');
+    expect(service.lastSavedRule?.toRulePayload()['sender'], 'wxid_alice');
   });
 
   test('arms and disarms through the service', () async {

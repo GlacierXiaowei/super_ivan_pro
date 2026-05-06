@@ -10,6 +10,8 @@ class FakeDesktopService implements DesktopService {
   DesktopArmState? lastSavedArmState;
   DesktopMode lastSavedMode = DesktopMode.normal;
   int restartCallCount = 0;
+  String? lastHistorySearchChat;
+  String? lastHistorySearchQuery;
 
   @override
   Future<DesktopSnapshot> loadSnapshot() async => _snapshot;
@@ -40,6 +42,25 @@ class FakeDesktopService implements DesktopService {
     lastSavedTarget = target;
     _snapshot = _snapshot.copyWith(activeTarget: target);
     return _snapshot;
+  }
+
+  @override
+  Future<List<HistorySenderCandidate>> searchHistorySenders({
+    required String chat,
+    required String query,
+    int limit = 20,
+  }) async {
+    lastHistorySearchChat = chat;
+    lastHistorySearchQuery = query;
+    return const [
+      HistorySenderCandidate(
+        sender: 'wxid_alice',
+        senderName: 'Alice Remark',
+        lastTimestamp: 1778000003,
+        lastContent: '最近一条历史发言',
+        messageCount: 2,
+      ),
+    ];
   }
 
   @override

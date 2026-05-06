@@ -26,6 +26,7 @@ void main() {
               'replies': ['TEST', '第二条'],
               'cooldown_ms': 800,
               'match_mode': 'regex',
+              'rule_sender': 'wxid_alice',
               'active_target': {
                 'display_name': '文件传输助手',
                 'talker': 'filehelper',
@@ -73,6 +74,7 @@ void main() {
     expect(snapshot.recentChats.single.isGroup, isFalse);
     expect(snapshot.rule.replies, ['TEST', '第二条']);
     expect(snapshot.rule.cooldownMs, 800);
+    expect(snapshot.rule.sender, 'wxid_alice');
     expect(snapshot.recentEvents.single.chatName, '文件传输助手');
     expect(snapshot.recentLogs.single.source, 'wechat_automation.log');
     expect(
@@ -171,6 +173,7 @@ void main() {
         replies: ['TEST', '第二条'],
         cooldownMs: 800,
         replyDelayMs: 250,
+        sender: 'wxid_alice',
       ),
     );
     await service.saveArmState(
@@ -182,6 +185,7 @@ void main() {
     );
 
     expect(receivedBodies[0], contains('"pattern":"START"'));
+    expect(receivedBodies[0], contains('"sender":"wxid_alice"'));
     expect(receivedBodies[0], contains('"reply_delay_ms":250'));
     expect(receivedBodies[1], contains('"enabled":true'));
   });
@@ -274,5 +278,54 @@ void main() {
 
     expect(restartCalled, isTrue);
     expect(snapshot.serviceStatusLabel, 'running');
+  });
+
+  test('searches history senders through the local service', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    Uri? receivedUri;
+    server.listen((request) async {
+      if (request.method == 'GET' && request.uri.path == '/history/senders') {
+        receivedUri = request.uri;
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              'candidates': [
+                {
+                  'sender': 'wxid_alice',
+                  'sender_name': 'Alice Remark',
+                  'last_timestamp': 1778000003,
+                  'last_content': '最近一条历史发言',
+                  'message_count': 2,
+                },
+              ],
+            }),
+          );
+        await request.response.close();
+        return;
+      }
+
+      request.response.statusCode = 404;
+      await request.response.close();
+    });
+
+    final service = HttpDesktopService(
+      Uri.parse('http://${server.address.address}:${server.port}'),
+    );
+
+    final candidates = await service.searchHistorySenders(
+      chat: '123456@chatroom',
+      query: 'Alice',
+      limit: 10,
+    );
+
+    expect(receivedUri?.queryParameters['chat'], '123456@chatroom');
+    expect(receivedUri?.queryParameters['query'], 'Alice');
+    expect(candidates.single.sender, 'wxid_alice');
+    expect(candidates.single.senderName, 'Alice Remark');
+    expect(candidates.single.messageCount, 2);
   });
 }

@@ -20,6 +20,7 @@ class RulePanel extends StatefulWidget {
     required int maxTriggers,
     required DesktopMatchMode matchMode,
     required int replyDelayMs,
+    required String sender,
   })
   onSaveRule;
 
@@ -33,6 +34,7 @@ class _RulePanelState extends State<RulePanel> {
   late final TextEditingController _cooldownController;
   late final TextEditingController _replyDelayController;
   late final TextEditingController _maxTriggersController;
+  late final TextEditingController _senderController;
   bool _isAnyTrigger = false;
 
   @override
@@ -43,6 +45,7 @@ class _RulePanelState extends State<RulePanel> {
     _cooldownController = TextEditingController();
     _replyDelayController = TextEditingController();
     _maxTriggersController = TextEditingController();
+    _senderController = TextEditingController();
     _syncFromSnapshot();
   }
 
@@ -58,6 +61,7 @@ class _RulePanelState extends State<RulePanel> {
         oldWidget.snapshot.rule.replyDelayMs !=
             widget.snapshot.rule.replyDelayMs ||
         oldWidget.snapshot.rule.matchMode != widget.snapshot.rule.matchMode ||
+        oldWidget.snapshot.rule.sender != widget.snapshot.rule.sender ||
         oldWidget.snapshot.armState.maxTriggers !=
             widget.snapshot.armState.maxTriggers) {
       _syncFromSnapshot();
@@ -70,6 +74,7 @@ class _RulePanelState extends State<RulePanel> {
     _cooldownController.text = '${widget.snapshot.rule.cooldownMs}';
     _replyDelayController.text = '${widget.snapshot.rule.replyDelayMs}';
     _maxTriggersController.text = '${widget.snapshot.armState.maxTriggers}';
+    _senderController.text = widget.snapshot.rule.sender;
     _isAnyTrigger = widget.snapshot.rule.matchMode == DesktopMatchMode.any;
   }
 
@@ -80,6 +85,7 @@ class _RulePanelState extends State<RulePanel> {
     _cooldownController.dispose();
     _replyDelayController.dispose();
     _maxTriggersController.dispose();
+    _senderController.dispose();
     super.dispose();
   }
 
@@ -114,6 +120,16 @@ class _RulePanelState extends State<RulePanel> {
           ),
           const SizedBox(height: 12),
           const Text('普通模式匹配方式：正则'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _senderController,
+            enabled: !widget.isBusy,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: '群成员 ID（可选）',
+              helperText: '留空表示不限制发送人；可用历史群成员搜索自动填入',
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _repliesController,
@@ -186,6 +202,7 @@ class _RulePanelState extends State<RulePanel> {
                           : DesktopMatchMode.regex,
                       replyDelayMs:
                           int.tryParse(_replyDelayController.text.trim()) ?? 0,
+                      sender: _senderController.text.trim(),
                     ),
               child: const Text('保存规则'),
             ),

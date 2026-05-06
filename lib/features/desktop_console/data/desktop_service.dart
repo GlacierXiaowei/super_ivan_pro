@@ -6,6 +6,11 @@ abstract class DesktopService {
   Future<DesktopSnapshot> saveRule(DesktopRule rule);
   Future<DesktopSnapshot> saveArmState(DesktopArmState state);
   Future<DesktopSnapshot> saveMode(DesktopMode mode);
+  Future<List<HistorySenderCandidate>> searchHistorySenders({
+    required String chat,
+    required String query,
+    int limit = 20,
+  });
   Future<DesktopSnapshot> startServices();
   Future<DesktopSnapshot> restartServices();
   Future<DesktopSnapshot> stopServices();

@@ -14,6 +14,7 @@ import urllib.request
 
 from core.arm_state import ArmStateStore
 from core.config_loader import load_runtime_config
+from core.history_sender_search import HistorySenderCandidate, search_history_senders
 from core.models import MessageEvent, RuntimeConfig
 from core.watcher_adapter import WechatDecryptHistoryWatcher
 
@@ -60,6 +61,26 @@ def _log_to_payload(source: str, message: str) -> dict[str, str]:
     return {
         "source": source,
         "message": message,
+    }
+
+
+def _history_sender_to_payload(candidate: object) -> dict[str, object]:
+    if isinstance(candidate, HistorySenderCandidate):
+        return candidate.to_dict()
+    if isinstance(candidate, dict):
+        return {
+            "sender": str(candidate.get("sender", "")),
+            "sender_name": str(candidate.get("sender_name", "")),
+            "last_timestamp": int(candidate.get("last_timestamp", 0) or 0),
+            "last_content": str(candidate.get("last_content", "")),
+            "message_count": int(candidate.get("message_count", 0) or 0),
+        }
+    return {
+        "sender": "",
+        "sender_name": "",
+        "last_timestamp": 0,
+        "last_content": "",
+        "message_count": 0,
     }
 
 
@@ -219,6 +240,7 @@ class DesktopServiceApp:
         popen_factory: Callable[..., Any] = subprocess.Popen,
         python_executable: str = sys.executable,
         source_health_check: Callable[[RuntimeConfig], bool] | None = None,
+        history_sender_searcher: Callable[[Path, str, str, int], list[object]] = search_history_senders,
     ) -> None:
         self._runtime_root = Path(runtime_root)
         self._repo_root = Path(repo_root)
@@ -229,6 +251,7 @@ class DesktopServiceApp:
         self._store = DesktopStateStore(self._runtime_root)
         self._watcher_factory = watcher_factory
         self._source_health_check = source_health_check or _default_source_health_check
+        self._history_sender_searcher = history_sender_searcher
         self._last_watcher_error = ""
         self._process_manager = BotProcessManager(
             repo_root=self._repo_root,
@@ -346,6 +369,33 @@ class DesktopServiceApp:
             events = self._fetch_recent_events(limit=limit, chat=chat)
             return HTTPStatus.OK, {"events": events}
 
+        if normalized_method == "GET" and normalized_path == "/history/senders":
+            chat = str(query.get("chat", [""])[0]).strip()
+            search_query = str(query.get("query", [""])[0]).strip()
+            limit = min(max(int(query.get("limit", ["20"])[0]), 1), 100)
+            if not chat:
+                return HTTPStatus.BAD_REQUEST, {
+                    "ok": False,
+                    "error": "chat query parameter is required",
+                }
+
+            runtime = load_runtime_config(self._runtime_config_path)
+            source_root = _resolve_wechat_decrypt_root(runtime)
+            if source_root is None:
+                return HTTPStatus.SERVICE_UNAVAILABLE, {
+                    "ok": False,
+                    "error": "wechat_decrypt_root_not_configured",
+                }
+
+            candidates = self._history_sender_searcher(source_root, chat, search_query, limit)
+            return HTTPStatus.OK, {
+                "candidates": [
+                    payload
+                    for payload in (_history_sender_to_payload(candidate) for candidate in candidates)
+                    if payload["sender"]
+                ]
+            }
+
         if normalized_method == "GET" and normalized_path == "/logs/recent":
             limit = max(int(query.get("limit", ["120"])[0]), 1)
             return HTTPStatus.OK, {"logs": self._fetch_recent_logs(limit=limit)}
@@ -395,6 +445,8 @@ class DesktopServiceApp:
             "cooldown_ms": int(first_rule.get("cooldown_ms", 0)),
             "reply_delay_ms": int(first_rule.get("reply_delay_ms", 0)),
             "match_mode": str(first_rule.get("match_mode", "regex")),
+            "rule_sender": str(first_rule.get("sender", "")),
+            "rule_sender_name": str(first_rule.get("sender_name", "")),
             "max_triggers": arm_state["max_triggers"],
             "remaining_triggers": arm_state["remaining_triggers"],
             "recent_logs": self._fetch_recent_logs(limit=80),
@@ -596,6 +648,7 @@ def create_app(
     popen_factory: Callable[..., Any] = subprocess.Popen,
     python_executable: str = sys.executable,
     source_health_check: Callable[[RuntimeConfig], bool] | None = None,
+    history_sender_searcher: Callable[[Path, str, str, int], list[object]] = search_history_senders,
 ) -> DesktopServiceApp:
     resolved_runtime_root = resolve_runtime_root(override=runtime_root)
     resolved_repo_root = resolve_repo_root(override=repo_root)
@@ -606,6 +659,7 @@ def create_app(
         popen_factory=popen_factory,
         python_executable=python_executable,
         source_health_check=source_health_check,
+        history_sender_searcher=history_sender_searcher,
     )
 
 

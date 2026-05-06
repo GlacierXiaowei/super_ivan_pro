@@ -94,6 +94,25 @@ class HttpDesktopService implements DesktopService {
   }
 
   @override
+  Future<List<HistorySenderCandidate>> searchHistorySenders({
+    required String chat,
+    required String query,
+    int limit = 20,
+  }) async {
+    final uri = Uri(
+      path: '/history/senders',
+      queryParameters: {'chat': chat, 'query': query, 'limit': '$limit'},
+    );
+    final payload = await _requestJsonWithLaunchRetry('GET', uri.toString());
+    return ((payload['candidates'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .map(HistorySenderCandidate.fromJson)
+        .where((candidate) => candidate.sender.isNotEmpty)
+        .toList();
+  }
+
+  @override
   Future<DesktopSnapshot> startServices() async {
     final payload = await _requestJsonWithLaunchRetry(
       'POST',

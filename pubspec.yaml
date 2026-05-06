@@ -68,6 +68,7 @@ flutter:
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/current_chat_sender.py
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/dedupe.py
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/dispatcher.py
+    - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/history_sender_search.py
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/logger.py
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/matcher.py
     - android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/models.py

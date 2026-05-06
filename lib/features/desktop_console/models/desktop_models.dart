@@ -27,6 +27,8 @@ class DesktopRule {
     this.matchMode = DesktopMatchMode.regex,
     this.talker = '',
     this.isGroup = false,
+    this.sender = '',
+    this.senderName = '',
   });
 
   final String pattern;
@@ -36,13 +38,16 @@ class DesktopRule {
   final DesktopMatchMode matchMode;
   final String talker;
   final bool isGroup;
+  final String sender;
+  final String senderName;
 
   Map<String, dynamic> toRulePayload() {
     return {
       'id': 'desktop_rule',
       'enabled': true,
       'talker': talker,
-      'sender': '',
+      'sender': sender,
+      'sender_name': senderName,
       'chat_scope': isGroup ? 'group' : 'private',
       'type': matchMode == DesktopMatchMode.any ? 'unknown' : 'text',
       'pattern': pattern,
@@ -51,6 +56,30 @@ class DesktopRule {
       'reply_delay_ms': replyDelayMs,
       'match_mode': matchMode.name,
     };
+  }
+
+  DesktopRule copyWith({
+    String? pattern,
+    List<String>? replies,
+    int? cooldownMs,
+    int? replyDelayMs,
+    DesktopMatchMode? matchMode,
+    String? talker,
+    bool? isGroup,
+    String? sender,
+    String? senderName,
+  }) {
+    return DesktopRule(
+      pattern: pattern ?? this.pattern,
+      replies: replies ?? this.replies,
+      cooldownMs: cooldownMs ?? this.cooldownMs,
+      replyDelayMs: replyDelayMs ?? this.replyDelayMs,
+      matchMode: matchMode ?? this.matchMode,
+      talker: talker ?? this.talker,
+      isGroup: isGroup ?? this.isGroup,
+      sender: sender ?? this.sender,
+      senderName: senderName ?? this.senderName,
+    );
   }
 }
 
@@ -108,6 +137,32 @@ class RecentEventPreview {
   final String chatName;
   final String senderName;
   final String content;
+}
+
+class HistorySenderCandidate {
+  const HistorySenderCandidate({
+    required this.sender,
+    required this.senderName,
+    required this.lastTimestamp,
+    required this.lastContent,
+    required this.messageCount,
+  });
+
+  factory HistorySenderCandidate.fromJson(Map<String, dynamic> json) {
+    return HistorySenderCandidate(
+      sender: json['sender'] as String? ?? '',
+      senderName: json['sender_name'] as String? ?? '',
+      lastTimestamp: json['last_timestamp'] as int? ?? 0,
+      lastContent: json['last_content'] as String? ?? '',
+      messageCount: json['message_count'] as int? ?? 0,
+    );
+  }
+
+  final String sender;
+  final String senderName;
+  final int lastTimestamp;
+  final String lastContent;
+  final int messageCount;
 }
 
 class DesktopLogLine {
@@ -198,6 +253,11 @@ class DesktopSnapshot {
   factory DesktopSnapshot.fromJson(Map<String, dynamic> json) {
     final activeTarget = (json['active_target'] as Map?)
         ?.cast<String, dynamic>();
+    final rules = ((json['rules'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    final firstRule = rules.isNotEmpty ? rules.first : null;
     final recentEvents = ((json['recent_events'] as List?) ?? const [])
         .whereType<Map>()
         .map((item) => item.cast<String, dynamic>())
@@ -264,6 +324,14 @@ class DesktopSnapshot {
         matchMode: _parseMatchMode(json['match_mode'] as String?),
         talker: activeTarget?['talker'] as String? ?? '',
         isGroup: activeTarget?['is_group'] as bool? ?? false,
+        sender:
+            json['rule_sender'] as String? ??
+            firstRule?['sender'] as String? ??
+            '',
+        senderName:
+            json['rule_sender_name'] as String? ??
+            firstRule?['sender_name'] as String? ??
+            '',
       ),
       armState: DesktopArmState(
         enabled: json['armed'] as bool? ?? false,

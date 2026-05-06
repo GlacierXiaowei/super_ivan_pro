@@ -12,6 +12,7 @@ void main() {
 
     expect(find.text('最近会话'), findsOneWidget);
     expect(find.text('手动输入监听对象'), findsOneWidget);
+    expect(find.text('历史群成员搜索'), findsOneWidget);
     expect(find.text('armed'), findsOneWidget);
     expect(find.text('保存对象'), findsOneWidget);
     expect(find.text('Arm'), findsOneWidget);
