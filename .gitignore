@@ -34,6 +34,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local Windows release packages and generated platform scaffolding.
+/dist/
+/linux/
+/android/local.properties
+/android/app/src/main/java/
+
 # Local WeChat automation runtime state.
 android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/*.local.json
 android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/config/*.local.jsonl
