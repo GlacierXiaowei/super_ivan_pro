@@ -22,8 +22,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
 
 if errorlevel 1 (
   echo Failed to build WeChat cache.
-  exit /b 1
+  set "EXIT_CODE=1"
+  goto finish
 )
 
 echo WeChat cache build finished.
-exit /b 0
+set "EXIT_CODE=0"
+
+:finish
+echo.
+echo Press any key to close this window...
+pause >nul
+exit /b %EXIT_CODE%

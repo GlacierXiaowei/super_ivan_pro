@@ -1016,3 +1016,11 @@ python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glaci
 1. 新增脚本校验测试先红后绿。
 2. `git diff --check` 无空白错误。
 3. Python 全量测试总计 `51/51` 通过。
+
+### 2026-05-07 追加修正
+
+1. `restart_python_service.bat` 和 `build_wechat_cache.bat` 现在都会在结束前停留。
+2. 无论成功还是失败，脚本都会显示：
+   - `Press any key to close this window...`
+3. 用户可以看到 PowerShell 或 Python 报错内容，再按任意键关闭窗口。
+4. 脚本仍会保留原始退出码，便于以后被其他自动化脚本调用。

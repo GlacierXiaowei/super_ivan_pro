@@ -24,6 +24,8 @@ class WindowsToolScriptsTest(unittest.TestCase):
         self.assertIn("get-nettcpconnection", content)
         self.assertIn("stop-process", content)
         self.assertIn("desktop_service.py", content)
+        self.assertIn("pause", content)
+        self.assertIn(":finish", content)
 
     def test_build_wechat_cache_script_runs_full_decrypt_only(self) -> None:
         script = _repo_root() / "tools" / "windows" / "build_wechat_cache.bat"
@@ -34,6 +36,8 @@ class WindowsToolScriptsTest(unittest.TestCase):
         self.assertIn("wechat_decrypt_root", content)
         self.assertIn("main.py", content)
         self.assertIn("decrypt", content)
+        self.assertIn("pause", content)
+        self.assertIn(":finish", content)
         self.assertNotIn("/arm-state", content)
         self.assertNotIn("/services/start", content)
 
