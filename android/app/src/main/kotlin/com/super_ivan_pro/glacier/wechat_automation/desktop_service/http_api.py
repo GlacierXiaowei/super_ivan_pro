@@ -537,7 +537,7 @@ class DesktopServiceApp:
     def _apply_runtime_mode_profile(self, mode: str) -> None:
         profile = RUNTIME_MODE_PROFILES.get(mode, RUNTIME_MODE_PROFILES["normal"])
         try:
-            payload = json.loads(self._runtime_config_path.read_text(encoding="utf-8"))
+            payload = json.loads(self._runtime_config_path.read_text(encoding="utf-8-sig"))
             if not isinstance(payload, dict):
                 payload = {}
         except (OSError, json.JSONDecodeError):

@@ -17,12 +17,13 @@ class HttpDesktopService implements DesktopService {
   factory HttpDesktopService.development() {
     const host = '127.0.0.1';
     const port = 18090;
+    final pythonCommand = WindowsServiceLauncher.resolvePythonCommand();
     return HttpDesktopService(
       Uri.parse('http://$host:$port'),
       launcher: WindowsServiceLauncher(
         serviceRoot: WindowsServiceLauncher.resolveServiceRoot(),
-        pythonExecutable:
-            Platform.environment['SUPER_IVAN_DESKTOP_PYTHON'] ?? 'python',
+        pythonExecutable: pythonCommand.executable,
+        pythonArgumentsPrefix: pythonCommand.argumentsPrefix,
         host: host,
         port: port,
       ),

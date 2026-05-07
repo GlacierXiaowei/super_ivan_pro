@@ -1034,3 +1034,404 @@ python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glaci
    - Release assets 里的 `desktop_service.py`
    - 仓库源码里的 `desktop_service.py`
 5. 本轮没有实际运行重启脚本，没有操作微信窗口，也没有触发发送。
+
+### 2026-05-07 重启脚本 Release 目录兼容修正
+
+1. 修复用户从 Windows Release 目录直接双击 `restart_python_service.bat` 或 `重启后台.bat` 时找不到 `desktop_service.py` 的问题。
+2. 根因是旧脚本总是假设自身位于仓库 `tools/windows` 目录下；当脚本位于 `build/windows/x64/runner/Release` 时，会错误拼出重复的 `build/windows/x64/runner/Release/build/windows/x64/runner/Release/...`。
+3. 新脚本查找顺序：
+   - 当前脚本目录下的 `data/flutter_assets/.../desktop_service.py`，用于 Release 根目录直接运行。
+   - 当前脚本目录上一级的 `data/flutter_assets/.../desktop_service.py`，用于以后放在包内 `tools` 子目录。
+   - 仓库 `build/windows/x64/runner/Release/data/flutter_assets/.../desktop_service.py`，用于开发者从 `tools/windows` 运行。
+   - 仓库源码 `android/app/src/main/kotlin/.../scripts/desktop_service.py`，用于未打包时开发调试。
+4. 已将当前本机 Release 目录中的以下脚本同步为新版，便于立即手动测试：
+   - `build/windows/x64/runner/Release/restart_python_service.bat`
+   - `build/windows/x64/runner/Release/重启后台.bat`
+5. 本轮未实际执行重启脚本，没有操作微信窗口，也没有 armed 或触发发送。
+6. Android/Linux 未追踪平台文件未纳入本轮修改；项目仍按多平台 Flutter 工程处理。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+git diff --check
+```
+
+结果：
+
+1. `test_windows_tool_scripts.py` 先红后绿，覆盖 Release 目录直接运行场景。
+2. Python 全量测试总计 `51/51` 通过。
+3. `git diff --check` 无空白错误。
+
+---
+
+## 2026-05-07 Windows 便携分发准备
+
+### 本轮目标
+
+让 Windows Release 产物从“开发者本机可运行”推进到“可组装成测试用户便携文件夹”：
+
+1. Release 目录稳定带上用户可见脚本，而不是依赖手工复制或残留产物。
+2. Flutter app、desktop service、辅助 BAT 都优先识别包内 `runtime/python` 与 `runtime/wechat-decrypt`。
+3. 提供一键初始化脚本，修正 `%LOCALAPPDATA%` 下旧的 `runtime.local.json`。
+4. 提供开发者侧便携目录组装脚本和分发文档。
+
+### 本轮新增/修改
+
+1. Flutter Windows 启动器新增包内 Python 自动发现：
+   - `lib/features/desktop_console/data/windows_service_launcher.dart`
+   - 新增 `resolvePythonExecutable(...)`
+   - 优先查找 `runtime/python/python.exe`
+2. Flutter HTTP desktop service 启动 wrapper 时改为使用自动发现的 Python：
+   - `lib/features/desktop_console/data/http_desktop_service.dart`
+3. Python desktop service 初始化 runtime 配置时，如果检测到打包目录中的：
+   - `runtime/wechat-decrypt/main.py`
+   - 会自动把 `wechat_decrypt_root` 写入 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json`
+4. `restart_python_service.bat` 现支持：
+   - Release 根目录运行
+   - `Release/tools` 运行
+   - `Release/tools/windows` 运行
+   - 包内 `runtime/python/python.exe`
+5. `build_wechat_cache.bat` 现支持包内 `runtime/python/python.exe`。
+6. 新增 `init_first_run.bat`
+   - 自动把本机 `runtime.local.json` 指向包内 `runtime/wechat-decrypt`
+   - 默认写入 `watcher_url=http://127.0.0.1:5678`
+7. `windows/CMakeLists.txt` 已正式安装这些 Windows 用户脚本到 Release：
+   - 根目录：
+     - `restart_python_service.bat`
+     - `build_wechat_cache.bat`
+     - `init_first_run.bat`
+     - `重启后台.bat`
+     - `获取微信历史数据.bat`
+     - `首次初始化.bat`
+   - `tools/windows/` 子目录中的真实脚本
+8. 新增开发者侧组装脚本：
+   - `tools/windows/package_portable_release.ps1`
+9. 新增分发文档：
+   - `docs/windows-portable-distribution.md`
+
+### 当前便携分发形态
+
+当前已经能生成一个测试用户可解压的便携目录，顶层至少包含：
+
+```text
+SuperIvanPro-Windows-Portable-*/
+  super_ivan_pro.exe
+  flutter_windows.dll
+  data/
+  tools/
+  runtime/
+  restart_python_service.bat
+  build_wechat_cache.bat
+  init_first_run.bat
+  README_WINDOWS_PORTABLE.md
+```
+
+其中 `runtime/` 可包含：
+
+```text
+runtime/
+  python/
+    python.exe
+  wechat-decrypt/
+    main.py
+```
+
+### 当前边界
+
+1. 本轮仍未操作微信窗口，也未 armed 或触发真实发送。
+2. 便携目录可生成成功。
+3. `Compress-Archive` 在大 Python 运行时目录上偶发文件锁；当前开发者脚本已优先尝试 `tar.exe`，但本轮交付以“文件夹分发可用”为主。
+4. 如果测试机器上已经存在旧的 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json`，建议先运行：
+   - `init_first_run.bat`
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_store.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter test test/windows_service_launcher_test.dart
+flutter analyze
+flutter test
+flutter build windows
+powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_release.ps1 -PythonRoot "<local python root>" -WechatDecryptRoot "<local wechat-decrypt root>"
+```
+
+结果：
+
+1. 新增 Flutter 启动器测试先红后绿，覆盖包内 Python 自动发现。
+2. 新增 Python runtime 配置测试先红后绿，覆盖包内 `wechat-decrypt` 自动回填。
+3. Windows 脚本测试先红后绿，覆盖：
+   - 多层 Release 目录定位
+   - 包内 Python
+   - 初始化脚本
+   - 便携组装脚本
+4. Python 全量测试现为 `52/52` 通过。
+5. `flutter analyze` 通过。
+6. `flutter test` 通过。
+7. `flutter build windows` 重新通过，生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+8. 已确认新的 Release 根目录实际包含：
+   - `restart_python_service.bat`
+   - `build_wechat_cache.bat`
+   - `重启后台.bat`
+   - `获取微信历史数据.bat`
+9. 已从真正的便携分发目录实际执行：
+   - `dist/.../restart_python_service.bat`
+10. 实际输出确认：
+   - `desktop_service.py` 从便携目录 `data/flutter_assets/...` 解析成功
+   - `python executable` 使用的是便携目录 `runtime/python/python.exe`
+   - 重启后状态仍为：
+     - `service_state=running`
+     - `watcher_state=running`
+     - `watcher_error=""`
+     - `armed=false`
+     - `mode=rapid`
+
+### 2026-05-07 便携包用户入口收口与实测补记
+
+1. 便携包根目录现在只保留 3 个用户脚本入口：
+   - `首次初始化.bat`
+   - `重启后台.bat`
+   - `重建聊天缓存.bat`
+2. 便携包根目录现在同时提供两份同内容中文说明：
+   - `使用说明.md`
+   - `README.md`
+3. 已从真正的便携包根目录实际执行：
+   - `dist/SuperIvanPro-Windows-Portable/首次初始化.bat`
+   - `dist/SuperIvanPro-Windows-Portable/重启后台.bat`
+4. 实际结果：
+   - `首次初始化.bat` 成功把 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json` 指向包内 `runtime\wechat-decrypt`
+   - `重启后台.bat` 成功从包内 `runtime\python\python.exe` 与 `data/flutter_assets/.../desktop_service.py` 拉起服务
+   - 重启后 `GET /status` 仍返回：
+     - `service_state=running`
+     - `watcher_state=running`
+     - `watcher_error=""`
+     - `armed=false`
+     - `mode=rapid`
+5. 这说明当前便携包已经满足“整包解压后运行脚本，不依赖仓库源码路径”的分发目标。
+
+### 2026-05-07 便携包初始化脚本 BOM 修复与最终验收
+
+#### 本轮定位到的真实问题
+
+1. 便携包 `首次初始化.bat` 之前使用 PowerShell `Set-Content -Encoding UTF8` 写 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json`。
+2. 在当前 Windows PowerShell 环境下，这会写出带 UTF-8 BOM 的 JSON。
+3. 运行中的 Python desktop service 读取 runtime 配置时，多个路径默认按 `utf-8` 解析 JSON。
+4. 结果是初始化后 `GET /status` 会出现：
+   - `watcher_state = unavailable`
+   - `watcher_error = Unexpected UTF-8 BOM (decode using utf-8-sig)`
+
+#### 本轮修复
+
+1. `tools/windows/init_first_run.bat` 改为使用无 BOM 的 UTF-8 写入 `runtime.local.json`。
+2. Python runtime 配置读取现在兼容带 BOM 的 JSON：
+   - `core/config_loader.py`
+   - `desktop_service/config_paths.py`
+   - `desktop_service/http_api.py`
+3. 新增回归测试覆盖：
+   - 初始化脚本写出的 `runtime.local.json` 不带 BOM
+   - desktop service 状态接口可读取带 BOM 的 runtime 配置
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter build windows
+powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_release.ps1 -OutputDir .\dist\SuperIvanPro-Windows-Portable-20260507-final -PythonRoot "<local python root>" -WechatDecryptRoot "<local wechat-decrypt root>"
+```
+
+结果：
+
+1. 目标回归测试先红后绿。
+2. Python 全量测试现为 `56/56` 通过。
+3. `flutter build windows` 重新通过。
+4. 新的最终便携包目录为：
+   - `dist/SuperIvanPro-Windows-Portable-20260507-final`
+
+#### 最终便携包实际验收
+
+已从最终便携包根目录实际执行：
+
+1. `首次初始化.bat`
+   - 成功写入 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json`
+   - 已确认文件 `bom=false`
+   - 已确认包含：
+     - `wechat_decrypt_root`
+     - `watcher_url = http://127.0.0.1:5678`
+2. `重启后台.bat`
+   - 成功使用包内：
+     - `runtime/python/python.exe`
+     - `data/flutter_assets/.../desktop_service.py`
+   - 重启后 `GET /status` 返回：
+     - `service_state=running`
+     - `watcher_state=running`
+     - `watcher_error=""`
+     - `armed=false`
+     - `mode=rapid`
+3. `重建聊天缓存.bat`
+   - 成功调用包内 `wechat-decrypt` 进行完整解密缓存构建
+   - 实际结果：
+     - `16` 个数据库成功
+     - `1` 个数据库失败
+     - 脚本整体正常结束并输出 `WeChat cache build finished.`
+4. `super_ivan_pro.exe`
+   - 已从最终便携包根目录实际拉起进程
+   - 启动后进程存活检查为 `alive=True`
+
+#### 当前建议交付物
+
+当前建议直接分发整个目录：
+
+- `dist/SuperIvanPro-Windows-Portable-20260507-final`
+
+分发时不要只发 `super_ivan_pro.exe`，应发送整个文件夹或其压缩包。
+
+### 2026-05-07 dry-run 发送通道修复与无 Python 便携包
+
+#### 本轮定位到的真实问题
+
+1. 用户侧现象是“规则触发了，但没有真正发送消息”。
+2. 实际日志确认 matcher 与 dispatch 都已经执行：
+   - `rule_match ...`
+   - `dispatch_success ...`
+3. 失败点在发送器选择，日志实际为：
+   - `dry_run_send ... payload=test`
+4. 当前 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json` 缺少：
+   - `sender_backend`
+   - `dry_run`
+5. Python `RuntimeConfig` 对缺失字段的安全默认值是：
+   - `sender_backend = dry_run`
+   - `dry_run = true`
+6. 因此根因不是 arm 失效，也不是规则没命中，而是便携初始化/运行时归一化没有补齐实发配置。
+
+#### 本轮修复
+
+1. `tools/windows/init_first_run.bat` 现在会在字段缺失时补齐：
+   - `sender_backend = current_chat`
+   - `dry_run = false`
+2. `desktop_service/config_paths.py` 现在会在打包态 runtime 缺字段时补齐同样的实发默认值，但保留用户显式配置。
+3. Flutter Windows service launcher 不再优先查找包内 `runtime/python/python.exe`：
+   - 优先使用 `SUPER_IVAN_DESKTOP_PYTHON`
+   - 再尝试系统 `python`
+   - 再尝试 `py -3`
+4. `tools/windows/package_portable_release.ps1` 已移除 `PythonRoot` 参数和 Python 打包分支。
+5. `重启后台.bat` 与 `重建聊天缓存.bat` 现在要求系统 Python，并在找不到 Python 时停住显示错误。
+6. `重启后台.bat` 的 18090 端口释放等待从 5 秒增强为 15 秒，并会重复确认/停止同一个 `desktop_service.py` 进程。
+7. 中文 README 已更新：当前分发包不内置 Python，测试机需要安装 Python 3。
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter test test/windows_service_launcher_test.dart
+flutter build windows
+powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_release.ps1 -OutputDir .\dist\SuperIvanPro-Windows-Portable-20260507-nopython -WechatDecryptRoot "D:\flutter_app\_tmp\wechat-decrypt"
+```
+
+结果：
+
+1. Python 全量测试为 `58/58` 通过。
+2. Flutter launcher 目标测试通过。
+3. `flutter build windows` 通过。
+4. 新的无 Python 便携包目录为：
+   - `dist/SuperIvanPro-Windows-Portable-20260507-nopython`
+5. 已确认新包内：
+   - `runtime\python\python.exe` 不存在
+   - `runtime\wechat-decrypt\main.py` 存在
+6. 已从新包实际执行：
+   - `首次初始化.bat`
+   - `重启后台.bat`
+7. 初始化后已确认 runtime 配置：
+   - `bom=false`
+   - `sender_backend=current_chat`
+   - `dry_run=false`
+   - `watcher_url=http://127.0.0.1:5678`
+8. 本机当前运行状态已恢复为：
+   - `service_state=running`
+   - `watcher_state=running`
+   - `watcher_error=""`
+   - `armed=false`
+   - `mode=rapid`
+
+#### 当前建议交付物
+
+当前建议分发整个目录：
+
+- `dist/SuperIvanPro-Windows-Portable-20260507-nopython`
+
+注意：该目录不内置 Python。测试电脑必须先安装 Python 3，并保证命令行可运行 `python` 或 `py`。
+
+### 2026-05-07 重启脚本 armed=true 处理与速度边界补记
+
+#### 本轮定位到的问题
+
+1. 用户执行 `重启后台.bat` 时如果当前 `armed=true`，脚本会直接报错：
+   - `Refusing to restart because armed=true. Disarm in the app first.`
+2. 这是之前为了避免“重启时保留真实发送状态”的安全闸，但对分发用户来说体验不好。
+3. 当前极速配置已确认：
+   - `poll_interval_ms=20`
+   - `inter_message_delay_ms=0`
+   - `current_chat_fast_send=true`
+   - `sender_backend=current_chat`
+   - `dry_run=false`
+
+#### 本轮修复
+
+1. `重启后台.bat` 在检测到 `armed=true` 时不再失败。
+2. 新行为是先调用 `/arm-state` 自动 disarm，再继续重启后台。
+3. 脚本会明确输出：
+   - `armed=true detected. Disarming before restart to avoid accidental sending.`
+4. 重启后状态会保持 `armed=False`，用户需要在 app 内重新 arm 才会继续真实发送。
+
+#### 本轮速度判断
+
+1. 最近日志显示触发链路已经是：
+   - `event_received`
+   - `rule_match`
+   - `current_chat_send`
+   - `dispatch_success`
+2. bot 收到事件后通常同秒或下一秒发送。
+3. `wechat-decrypt` 日志显示消息采集延迟近期多在约 `0.4s-1.9s`。
+4. 目前 app 侧轮询已是 20ms，下探只能节省十几毫秒；主要瓶颈更可能在 `wechat-decrypt` 采集/解密侧。
+5. 后续真正有价值的速度优化应先加毫秒级耗时日志，再决定是否改 `wechat-decrypt` 的 live 查询策略。
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_release.ps1 -OutputDir .\dist\SuperIvanPro-Windows-Portable-20260507-nopython -WechatDecryptRoot "D:\flutter_app\_tmp\wechat-decrypt"
+```
+
+结果：
+
+1. 目标 Python 测试通过。
+2. 新便携包根目录为：
+   - `dist/SuperIvanPro-Windows-Portable-20260507-nopython-20260507-140247`
+3. 已从新包实际执行：
+   - `首次初始化.bat`
+   - `重启后台.bat`
+4. 新 `重启后台.bat` 已在 `armed=true` 状态下实测通过：
+   - 自动 disarm
+   - 成功重启
+   - `service_state=running`
+   - `watcher_state=running`
+   - `watcher_error=""`
+   - `armed=False`
+   - `mode=rapid`

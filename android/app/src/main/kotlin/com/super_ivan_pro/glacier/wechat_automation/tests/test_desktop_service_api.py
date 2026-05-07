@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import json
 import os
 import tempfile
@@ -463,6 +464,30 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(status_code, 200)
             self.assertEqual(status["watcher_state"], "unavailable")
             self.assertEqual(status["watcher_error"], "watcher offline")
+
+    def test_status_accepts_runtime_config_with_utf8_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            runtime_path = runtime_root / "config" / "runtime.local.json"
+            payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+            runtime_path.write_bytes(
+                codecs.BOM_UTF8 + json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+            )
+
+            status_code, status = app.handle_json("GET", "/status")
+            self.assertEqual(status_code, 200)
+            self.assertEqual(status["watcher_state"], "running")
+            self.assertEqual(status["watcher_error"], "")
 
     def test_rule_update_restarts_running_bot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -9,11 +9,12 @@ from .models import Rule, RuntimeConfig
 
 def _load_structured_file(path: str | Path) -> Any:
     resolved = Path(path).resolve()
-    text = resolved.read_text(encoding="utf-8")
     suffix = resolved.suffix.lower()
     if suffix == ".json":
+        text = resolved.read_text(encoding="utf-8-sig")
         return json.loads(text)
     if suffix in {".yaml", ".yml"}:
+        text = resolved.read_text(encoding="utf-8")
         try:
             import yaml  # type: ignore
         except ImportError as exc:

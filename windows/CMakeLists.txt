@@ -71,6 +71,7 @@ endif()
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
+set(SUPER_IVAN_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../tools/windows")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
@@ -101,6 +102,54 @@ install(CODE "
   " COMPONENT Runtime)
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+
+install(
+  DIRECTORY "${SUPER_IVAN_TOOLS_DIR}"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/tools"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/restart_python_service_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "restart_python_service.bat"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/build_wechat_cache_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "build_wechat_cache.bat"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/init_first_run_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "init_first_run.bat"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/restart_python_service_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "重启后台.bat"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/build_wechat_cache_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "获取微信历史数据.bat"
+  COMPONENT Runtime
+)
+
+install(
+  FILES "${SUPER_IVAN_TOOLS_DIR}/init_first_run_entry.bat"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  RENAME "首次初始化.bat"
+  COMPONENT Runtime
+)
 
 # Install the AOT library on non-Debug builds only.
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
