@@ -1,19 +1,40 @@
 @echo off
 setlocal
 
-for %%I in ("%~dp0..\..") do set "REPO_ROOT=%%~fI"
+pushd "%~dp0..\.." >nul 2>nul
+if errorlevel 1 (
+  echo Failed to resolve repo root from "%~dp0..\..".
+  set "EXIT_CODE=1"
+  goto finish
+)
+set "REPO_ROOT=%CD%"
+popd >nul
+
 set "SERVICE_SCRIPT=%REPO_ROOT%\build\windows\x64\runner\Release\data\flutter_assets\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\scripts\desktop_service.py"
 set "SOURCE_SERVICE_SCRIPT=%REPO_ROOT%\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\scripts\desktop_service.py"
+if exist "%SERVICE_SCRIPT%" (
+  set "DESKTOP_SERVICE_SCRIPT=%SERVICE_SCRIPT%"
+) else if exist "%SOURCE_SERVICE_SCRIPT%" (
+  set "DESKTOP_SERVICE_SCRIPT=%SOURCE_SERVICE_SCRIPT%"
+) else (
+  echo desktop_service.py not found.
+  echo Searched paths:
+  echo   %SERVICE_SCRIPT%
+  echo   %SOURCE_SERVICE_SCRIPT%
+  set "EXIT_CODE=1"
+  goto finish
+)
 set "PYTHON_EXE=python"
 if not "%SUPER_IVAN_DESKTOP_PYTHON%"=="" set "PYTHON_EXE=%SUPER_IVAN_DESKTOP_PYTHON%"
 
 echo Restarting Super Ivan Python desktop service on 127.0.0.1:18090...
+echo Using desktop_service.py:
+echo   %DESKTOP_SERVICE_SCRIPT%
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop';" ^
-  "$serviceScript=$env:SERVICE_SCRIPT;" ^
-  "if (-not (Test-Path -LiteralPath $serviceScript)) { $serviceScript=$env:SOURCE_SERVICE_SCRIPT }" ^
-  "if (-not (Test-Path -LiteralPath $serviceScript)) { throw 'desktop_service.py not found. Build Windows first or check repo path.' }" ^
+  "$serviceScript=$env:DESKTOP_SERVICE_SCRIPT;" ^
+  "if (-not (Test-Path -LiteralPath $serviceScript)) { throw ('desktop_service.py not found: ' + $serviceScript) }" ^
   "$statusBefore=$null;" ^
   "try { $statusBefore=Invoke-RestMethod -Uri 'http://127.0.0.1:18090/status' -Method Get -TimeoutSec 2 } catch { }" ^
   "if ($statusBefore -and [bool]$statusBefore.armed) { throw 'Refusing to restart because armed=true. Disarm in the app first.' }" ^

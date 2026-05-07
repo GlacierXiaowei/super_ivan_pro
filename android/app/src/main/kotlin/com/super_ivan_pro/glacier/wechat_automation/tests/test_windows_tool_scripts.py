@@ -18,6 +18,8 @@ class WindowsToolScriptsTest(unittest.TestCase):
         self.assertTrue(script.exists(), "restart_python_service.bat should exist")
 
         content = script.read_text(encoding="utf-8").lower()
+        self.assertIn('pushd "%~dp0..\\.."', content)
+        self.assertIn("searched paths", content)
         self.assertIn("http://127.0.0.1:18090/status", content)
         self.assertIn("armed=true", content)
         self.assertIn("/services/stop", content)

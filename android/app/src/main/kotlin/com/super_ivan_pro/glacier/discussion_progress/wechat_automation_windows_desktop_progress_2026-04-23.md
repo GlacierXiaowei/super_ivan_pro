@@ -1024,3 +1024,13 @@ python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glaci
    - `Press any key to close this window...`
 3. 用户可以看到 PowerShell 或 Python 报错内容，再按任意键关闭窗口。
 4. 脚本仍会保留原始退出码，便于以后被其他自动化脚本调用。
+
+### 2026-05-07 重启脚本路径修正
+
+1. 修复 `restart_python_service.bat` 在部分运行方式下推导仓库根目录不稳定的问题。
+2. 仓库根目录现在通过 `pushd "%~dp0..\.."` 后读取 `%CD%` 得到。
+3. 脚本会在进入 PowerShell 前先确认 `desktop_service.py` 存在。
+4. 如果找不到文件，会打印实际搜索的两个路径：
+   - Release assets 里的 `desktop_service.py`
+   - 仓库源码里的 `desktop_service.py`
+5. 本轮没有实际运行重启脚本，没有操作微信窗口，也没有触发发送。
