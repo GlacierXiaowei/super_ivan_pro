@@ -968,3 +968,51 @@ flutter build windows
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
 8. 已确认打包产物包含：
    - `data/flutter_assets/.../core/history_chat_search.py`
+
+---
+
+## 2026-05-07 Windows 辅助脚本
+
+### 本轮目标
+
+为本机测试和后续分发前排障补两个显式脚本：
+
+1. 一键重启 `127.0.0.1:18090` Python desktop service wrapper。
+2. 一键运行 `wechat-decrypt` 完整解密，刷新历史群聊和历史群成员查询依赖的缓存。
+
+### 本轮新增文件
+
+1. `tools/windows/restart_python_service.bat`
+   - 优先使用 Windows Release assets 中的 `desktop_service.py`。
+   - 如果 Release assets 不存在，回退到仓库源码里的 `scripts/desktop_service.py`。
+   - 先请求 `/status`，如果发现 `armed=true`，直接拒绝继续。
+   - 如果 wrapper 正在运行，先调用 `/services/stop` 停掉托管的 bot/source。
+   - 只停止监听 `127.0.0.1:18090` 且命令行包含 `desktop_service.py` 的进程。
+   - 重启 wrapper 后，如果重启前 `service_state=running`，且重启后仍 `armed=false`，再恢复 `/services/start`。
+2. `tools/windows/build_wechat_cache.bat`
+   - 从 `%LOCALAPPDATA%\SuperIvanPro\wechat_automation\config\runtime.local.json` 读取 `wechat_decrypt_root`。
+   - 进入 `wechat_decrypt_root` 后执行 `python main.py decrypt`。
+   - 不调用 `/arm-state`，不调用 `/services/start`，不触发发送链路。
+
+### 当前边界
+
+1. 本轮只创建脚本和测试，没有实际运行这两个脚本。
+2. `restart_python_service.bat` 会操作本机 18090 Python wrapper，使用前应确认 App 中已 Disarm。
+3. `build_wechat_cache.bat` 会读本机微信数据库并生成解密缓存，可能耗时较长。
+4. 两个脚本仍依赖本机已有 Python 和 `wechat-decrypt` 依赖。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_windows_tool_scripts.py -v
+git diff --check
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+```
+
+结果：
+
+1. 新增脚本校验测试先红后绿。
+2. `git diff --check` 无空白错误。
+3. Python 全量测试总计 `51/51` 通过。
