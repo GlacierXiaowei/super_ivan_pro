@@ -1435,3 +1435,63 @@ powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_releas
    - `watcher_error=""`
    - `armed=False`
    - `mode=rapid`
+
+### 2026-05-07 live watcher SSE 提速优化
+
+#### 本轮定位到的真实瓶颈
+
+1. app/bot 侧极速模式此前已经是：
+   - `poll_interval_ms=20`
+   - `inter_message_delay_ms=0`
+   - `current_chat_fast_send=true`
+2. 已有的单目标 `chat` 过滤只作用于 wechat-decrypt 的 `/api/history` 返回结果。
+3. 该过滤可以减少 bot 处理干扰，但不能让 wechat-decrypt 内部少做 session DB/WAL 解密扫描。
+4. wechat-decrypt 本身已经支持 `/stream` SSE 推送；继续用 20ms `/api/history` 轮询会多一道拉取等待和 HTTP 轮询噪声。
+
+#### 本轮修复
+
+1. `WechatDecryptHistoryWatcher` 现在默认优先连接：
+   - `http://127.0.0.1:5678/stream`
+2. SSE 收到新消息后直接 normalize + dedupe + yield 给 bot，不再等待下一次 history poll。
+3. SSE 会忽略 `rich_update` / `image_update` 等非原始消息更新事件，避免富媒体补充事件误触发规则。
+4. SSE 连接建立后会立即执行一次 `/api/history?since=...` catch-up，避免消息落在“prime 后、stream 连接前”的竞态窗口里被漏掉。
+5. 如果 SSE 连接失败或断开，会自动回退到原来的 `/api/history?since=...` 轮询，并在 2 秒后重试 SSE。
+6. 新增毫秒级日志：
+   - `watcher_stream_connect`
+   - `watcher_stream_error`
+   - `watcher_history_fetch elapsed_ms=...`
+   - `watcher_event source=stream/history lag_ms=...`
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_live_watcher_cold_start.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+```
+
+结果：
+
+1. 新增测试先红后绿，覆盖 SSE 读取目标聊天消息、忽略其他聊天、忽略富媒体更新事件、以及 stream 连接竞态窗口 catch-up。
+2. Python 全量测试现为 `60/60` 通过。
+3. 当前 18090 已从旧便携包服务切回仓库源码服务以便实测新代码。
+4. 当前运行状态：
+   - `service_state=running`
+   - `watcher_state=running`
+   - `watcher_error=""`
+   - `armed=false`
+   - `mode=rapid`
+5. 当前 live bot 日志已确认：
+   - `watcher_stream_connect url=http://127.0.0.1:5678/stream chat_filter=测试群聊`
+   - `watcher_history_fetch elapsed_ms=16 count=0 since=1778133536 limit=50 chat_filter=测试群聊`
+
+#### 当前测试边界
+
+1. 本轮没有 armed，也没有触发真实发送。
+2. 下一步如果要验证端到端体感速度，需要用户手动在 app 内 armed 后发一条测试消息，再对比日志中的：
+   - wechat-decrypt `[延迟=...]`
+   - bot `watcher_event source=stream`
+   - bot `event_received`
+   - bot `current_chat_send`
+   - bot `dispatch_success`
