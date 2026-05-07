@@ -130,6 +130,19 @@ def fake_history_sender_searcher(source_root: Path, chat: str, query: str, limit
     ]
 
 
+def fake_history_chat_searcher(source_root: Path, query: str, limit: int) -> list[dict[str, object]]:
+    _ = source_root
+    return [
+        {
+            "talker": "123456@chatroom",
+            "display_name": f"{query}测试群",
+            "last_timestamp": 1778000004,
+            "summary": "最近一条群消息",
+            "source": "session",
+        }
+    ][:limit]
+
+
 class DesktopServiceApiTest(unittest.TestCase):
     def _build_repo_fixture(self, root: Path) -> None:
         (root / "config").mkdir(parents=True, exist_ok=True)
@@ -333,6 +346,37 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(payload["candidates"][0]["sender"], "wxid_alice")
             self.assertEqual(payload["candidates"][0]["sender_name"], "Alice Remark")
             self.assertEqual(payload["candidates"][0]["message_count"], 2)
+
+    def test_history_chats_endpoint_returns_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            source_root = tmp_path / "wechat-decrypt"
+            source_root.mkdir(parents=True)
+            (source_root / "main.py").write_text("print('source placeholder')\n", encoding="utf-8")
+            self._build_repo_fixture(repo_root)
+            runtime_path = repo_root / "config" / "runtime.local.json"
+            runtime_payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+            runtime_payload["wechat_decrypt_root"] = str(source_root)
+            runtime_path.write_text(json.dumps(runtime_payload), encoding="utf-8")
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+                history_chat_searcher=fake_history_chat_searcher,
+            )
+
+            status_code, payload = app.handle_json(
+                "GET",
+                "/history/chats?query=%E6%B5%8B%E8%AF%95&limit=5",
+            )
+
+            self.assertEqual(status_code, 200)
+            self.assertEqual(payload["candidates"][0]["talker"], "123456@chatroom")
+            self.assertEqual(payload["candidates"][0]["display_name"], "测试测试群")
+            self.assertEqual(payload["candidates"][0]["source"], "session")
 
     def test_post_responses_return_cached_status_without_refreshing_watcher(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

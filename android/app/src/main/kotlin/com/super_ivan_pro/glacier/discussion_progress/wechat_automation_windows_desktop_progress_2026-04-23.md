@@ -898,3 +898,73 @@ flutter build windows
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
 6. 已确认打包产物包含：
    - `data/flutter_assets/.../core/history_sender_search.py`
+
+---
+
+## 2026-05-07 历史群聊搜索
+
+### 本轮目标
+
+解决“目标群不在最近会话里，用户只知道群名但不知道 `@chatroom` ID，无法先定位群再查成员”的问题。
+
+### 本轮新增实现
+
+1. 新增 `core/history_chat_search.py`：
+   - 从 `wechat-decrypt` 的已解密缓存中读取历史群聊候选。
+   - 优先读取 `decrypted/session/session.db` 的 `SessionTable` 和 `SessionNoContactInfoTable`。
+   - 同时读取 `decrypted/contact/contact.db` 或 `decrypted/_monitor_cache/contact_contact.db` 的群聊联系人。
+   - 只返回 `talker` 以 `@chatroom` 结尾的群聊。
+   - 返回字段：
+     - `talker`
+     - `display_name`
+     - `last_timestamp`
+     - `summary`
+     - `source`
+2. Python desktop service 新增：
+   - `GET /history/chats?query=<keyword>&limit=<n>`
+3. Flutter 模型和服务层新增：
+   - `HistoryChatCandidate`
+   - `DesktopService.searchHistoryChats(...)`
+   - `HttpDesktopService` 调用 `/history/chats`
+4. Flutter “监听对象”区域新增“历史群聊搜索”：
+   - 输入群名或群聊 ID 关键字搜索。
+   - 空关键词可以列出缓存中可识别的历史群聊。
+   - 点击“使用”会把该群保存为当前对象，并自动按群聊处理。
+   - 之后可以继续用已有“历史群成员搜索”查询该群成员 sender ID。
+5. `pubspec.yaml` 已把 `history_chat_search.py` 加入 Windows 打包 assets。
+
+### 当前边界
+
+1. 该功能只读取本机 `wechat-decrypt` 已解密缓存，不联网查询微信服务器。
+2. 如果某个群既不在 `session.db`，也不在 contact cache 中，历史群聊搜索仍可能查不到。
+3. 如果缓存过旧，需要先启动消息源或运行完整解密刷新缓存。
+4. 本轮没有操作微信窗口，也没有 armed 或触发真实发送。
+
+### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_history_chat_search.py -v
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+flutter test test/http_desktop_service_test.dart
+flutter test test/desktop_console_controller_test.dart
+flutter test test/target_panel_test.dart
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+```
+
+结果：
+
+1. 新增历史群聊搜索核心测试先红后绿。
+2. 新增 `/history/chats` API 测试先红后绿。
+3. 新增 TargetPanel 搜索并保存群聊对象 widget 测试先红后绿。
+4. Python 全量测试总计 `49/49` 通过。
+5. `flutter analyze` 无问题。
+6. `flutter test` 通过。
+7. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+8. 已确认打包产物包含：
+   - `data/flutter_assets/.../core/history_chat_search.py`

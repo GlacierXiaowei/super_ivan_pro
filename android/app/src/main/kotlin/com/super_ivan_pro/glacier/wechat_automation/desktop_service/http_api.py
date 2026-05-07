@@ -14,6 +14,7 @@ import urllib.request
 
 from core.arm_state import ArmStateStore
 from core.config_loader import load_runtime_config
+from core.history_chat_search import HistoryChatCandidate, search_history_chats
 from core.history_sender_search import HistorySenderCandidate, search_history_senders
 from core.models import MessageEvent, RuntimeConfig
 from core.watcher_adapter import WechatDecryptHistoryWatcher
@@ -81,6 +82,26 @@ def _history_sender_to_payload(candidate: object) -> dict[str, object]:
         "last_timestamp": 0,
         "last_content": "",
         "message_count": 0,
+    }
+
+
+def _history_chat_to_payload(candidate: object) -> dict[str, object]:
+    if isinstance(candidate, HistoryChatCandidate):
+        return candidate.to_dict()
+    if isinstance(candidate, dict):
+        return {
+            "talker": str(candidate.get("talker", "")),
+            "display_name": str(candidate.get("display_name", "")),
+            "last_timestamp": int(candidate.get("last_timestamp", 0) or 0),
+            "summary": str(candidate.get("summary", "")),
+            "source": str(candidate.get("source", "")),
+        }
+    return {
+        "talker": "",
+        "display_name": "",
+        "last_timestamp": 0,
+        "summary": "",
+        "source": "",
     }
 
 
@@ -241,6 +262,7 @@ class DesktopServiceApp:
         python_executable: str = sys.executable,
         source_health_check: Callable[[RuntimeConfig], bool] | None = None,
         history_sender_searcher: Callable[[Path, str, str, int], list[object]] = search_history_senders,
+        history_chat_searcher: Callable[[Path, str, int], list[object]] = search_history_chats,
     ) -> None:
         self._runtime_root = Path(runtime_root)
         self._repo_root = Path(repo_root)
@@ -252,6 +274,7 @@ class DesktopServiceApp:
         self._watcher_factory = watcher_factory
         self._source_health_check = source_health_check or _default_source_health_check
         self._history_sender_searcher = history_sender_searcher
+        self._history_chat_searcher = history_chat_searcher
         self._last_watcher_error = ""
         self._process_manager = BotProcessManager(
             repo_root=self._repo_root,
@@ -393,6 +416,26 @@ class DesktopServiceApp:
                     payload
                     for payload in (_history_sender_to_payload(candidate) for candidate in candidates)
                     if payload["sender"]
+                ]
+            }
+
+        if normalized_method == "GET" and normalized_path == "/history/chats":
+            search_query = str(query.get("query", [""])[0]).strip()
+            limit = min(max(int(query.get("limit", ["20"])[0]), 1), 100)
+            runtime = load_runtime_config(self._runtime_config_path)
+            source_root = _resolve_wechat_decrypt_root(runtime)
+            if source_root is None:
+                return HTTPStatus.SERVICE_UNAVAILABLE, {
+                    "ok": False,
+                    "error": "wechat_decrypt_root_not_configured",
+                }
+
+            candidates = self._history_chat_searcher(source_root, search_query, limit)
+            return HTTPStatus.OK, {
+                "candidates": [
+                    payload
+                    for payload in (_history_chat_to_payload(candidate) for candidate in candidates)
+                    if payload["talker"]
                 ]
             }
 
@@ -649,6 +692,7 @@ def create_app(
     python_executable: str = sys.executable,
     source_health_check: Callable[[RuntimeConfig], bool] | None = None,
     history_sender_searcher: Callable[[Path, str, str, int], list[object]] = search_history_senders,
+    history_chat_searcher: Callable[[Path, str, int], list[object]] = search_history_chats,
 ) -> DesktopServiceApp:
     resolved_runtime_root = resolve_runtime_root(override=runtime_root)
     resolved_repo_root = resolve_repo_root(override=repo_root)
@@ -660,6 +704,7 @@ def create_app(
         python_executable=python_executable,
         source_health_check=source_health_check,
         history_sender_searcher=history_sender_searcher,
+        history_chat_searcher=history_chat_searcher,
     )
 
 

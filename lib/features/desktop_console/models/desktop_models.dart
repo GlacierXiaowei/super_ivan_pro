@@ -139,6 +139,32 @@ class RecentEventPreview {
   final String content;
 }
 
+class HistoryChatCandidate {
+  const HistoryChatCandidate({
+    required this.talker,
+    required this.displayName,
+    required this.lastTimestamp,
+    required this.summary,
+    required this.source,
+  });
+
+  factory HistoryChatCandidate.fromJson(Map<String, dynamic> json) {
+    return HistoryChatCandidate(
+      talker: json['talker'] as String? ?? '',
+      displayName: json['display_name'] as String? ?? '',
+      lastTimestamp: json['last_timestamp'] as int? ?? 0,
+      summary: json['summary'] as String? ?? '',
+      source: json['source'] as String? ?? '',
+    );
+  }
+
+  final String talker;
+  final String displayName;
+  final int lastTimestamp;
+  final String summary;
+  final String source;
+}
+
 class HistorySenderCandidate {
   const HistorySenderCandidate({
     required this.sender,

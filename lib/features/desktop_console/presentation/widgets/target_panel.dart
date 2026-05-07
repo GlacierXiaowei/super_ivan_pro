@@ -8,6 +8,7 @@ class TargetPanel extends StatefulWidget {
     required this.snapshot,
     required this.isBusy,
     required this.onSaveTarget,
+    required this.onSearchHistoryChats,
     required this.onSearchHistorySenders,
     required this.onSelectSender,
   });
@@ -20,6 +21,8 @@ class TargetPanel extends StatefulWidget {
     required bool isGroup,
   })
   onSaveTarget;
+  final Future<List<HistoryChatCandidate>> Function({required String query})
+  onSearchHistoryChats;
   final Future<List<HistorySenderCandidate>> Function({
     required String chat,
     required String query,
@@ -37,10 +40,14 @@ class TargetPanel extends StatefulWidget {
 
 class _TargetPanelState extends State<TargetPanel> {
   late final TextEditingController _controller;
+  late final TextEditingController _chatSearchController;
   late final TextEditingController _memberSearchController;
   bool _isGroup = false;
+  bool _isSearchingChats = false;
   bool _isSearchingMembers = false;
+  String _chatSearchError = '';
   String _memberSearchError = '';
+  List<HistoryChatCandidate> _chatCandidates = const [];
   List<HistorySenderCandidate> _memberCandidates = const [];
 
   @override
@@ -49,6 +56,7 @@ class _TargetPanelState extends State<TargetPanel> {
     _controller = TextEditingController(
       text: widget.snapshot.activeTarget.displayName,
     );
+    _chatSearchController = TextEditingController();
     _memberSearchController = TextEditingController();
     _isGroup = widget.snapshot.activeTarget.isGroup;
   }
@@ -66,8 +74,42 @@ class _TargetPanelState extends State<TargetPanel> {
   @override
   void dispose() {
     _controller.dispose();
+    _chatSearchController.dispose();
     _memberSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchHistoryChats() async {
+    setState(() {
+      _isSearchingChats = true;
+      _chatSearchError = '';
+    });
+    try {
+      final candidates = await widget.onSearchHistoryChats(
+        query: _chatSearchController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _chatCandidates = candidates;
+        _chatSearchError = candidates.isEmpty ? '未找到匹配的历史群聊' : '';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _chatCandidates = const [];
+        _chatSearchError = '$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingChats = false;
+        });
+      }
+    }
   }
 
   Future<void> _searchHistoryMembers() async {
@@ -148,6 +190,79 @@ class _TargetPanelState extends State<TargetPanel> {
                 )
                 .toList(),
           ),
+          const SizedBox(height: 16),
+          Text('历史群聊搜索', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('history-chat-search-field'),
+                  controller: _chatSearchController,
+                  enabled: !widget.isBusy && !_isSearchingChats,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: '群名 / 群聊 ID 关键字',
+                    helperText: '从历史会话和联系人缓存里查找 @chatroom',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.tonal(
+                key: const ValueKey('history-chat-search-button'),
+                onPressed: widget.isBusy || _isSearchingChats
+                    ? null
+                    : _searchHistoryChats,
+                child: Text(_isSearchingChats ? '搜索中' : '搜索'),
+              ),
+            ],
+          ),
+          if (_chatSearchError.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _chatSearchError,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          if (_chatCandidates.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ..._chatCandidates.map(
+              (candidate) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  dense: true,
+                  title: Text(
+                    candidate.displayName.isEmpty
+                        ? candidate.talker
+                        : candidate.displayName,
+                  ),
+                  subtitle: Text(
+                    '${candidate.talker}\n最近: ${candidate.summary.isEmpty ? '暂无摘要' : candidate.summary}',
+                  ),
+                  isThreeLine: true,
+                  trailing: TextButton(
+                    onPressed: widget.isBusy
+                        ? null
+                        : () async {
+                            final displayName = candidate.displayName.isEmpty
+                                ? candidate.talker
+                                : candidate.displayName;
+                            _controller.text = displayName;
+                            setState(() {
+                              _isGroup = true;
+                            });
+                            await widget.onSaveTarget(
+                              displayName: displayName,
+                              talker: candidate.talker,
+                              isGroup: true,
+                            );
+                          },
+                    child: const Text('使用'),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Text('手动输入监听对象', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),

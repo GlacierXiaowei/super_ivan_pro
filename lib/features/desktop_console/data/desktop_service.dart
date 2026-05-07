@@ -11,6 +11,10 @@ abstract class DesktopService {
     required String query,
     int limit = 20,
   });
+  Future<List<HistoryChatCandidate>> searchHistoryChats({
+    required String query,
+    int limit = 20,
+  });
   Future<DesktopSnapshot> startServices();
   Future<DesktopSnapshot> restartServices();
   Future<DesktopSnapshot> stopServices();

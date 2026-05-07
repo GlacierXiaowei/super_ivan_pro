@@ -328,4 +328,50 @@ void main() {
     expect(candidates.single.senderName, 'Alice Remark');
     expect(candidates.single.messageCount, 2);
   });
+
+  test('searches history chats through the local service', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    Uri? receivedUri;
+    server.listen((request) async {
+      if (request.method == 'GET' && request.uri.path == '/history/chats') {
+        receivedUri = request.uri;
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              'candidates': [
+                {
+                  'talker': '123456@chatroom',
+                  'display_name': '项目讨论群',
+                  'last_timestamp': 1778000004,
+                  'summary': '最近一条群消息',
+                  'source': 'session',
+                },
+              ],
+            }),
+          );
+        await request.response.close();
+        return;
+      }
+
+      request.response.statusCode = 404;
+      await request.response.close();
+    });
+
+    final service = HttpDesktopService(
+      Uri.parse('http://${server.address.address}:${server.port}'),
+    );
+
+    final candidates = await service.searchHistoryChats(query: '项目', limit: 10);
+
+    expect(receivedUri?.queryParameters['query'], '项目');
+    expect(receivedUri?.queryParameters['limit'], '10');
+    expect(candidates.single.talker, '123456@chatroom');
+    expect(candidates.single.displayName, '项目讨论群');
+    expect(candidates.single.summary, '最近一条群消息');
+    expect(candidates.single.source, 'session');
+  });
 }

@@ -75,6 +75,7 @@ class _DesktopConsolePageState extends State<DesktopConsolePage> {
                 snapshot: snapshot,
                 isBusy: controller.isBusy,
                 onSaveTarget: controller.saveTarget,
+                onSearchHistoryChats: controller.searchHistoryChats,
                 onSearchHistorySenders: controller.searchHistorySenders,
                 onSelectSender: controller.setRuleSenderFilter,
               ),

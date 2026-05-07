@@ -76,6 +76,12 @@ class DesktopConsoleController extends ChangeNotifier {
     return _service.searchHistorySenders(chat: chat, query: query, limit: 20);
   }
 
+  Future<List<HistoryChatCandidate>> searchHistoryChats({
+    required String query,
+  }) {
+    return _service.searchHistoryChats(query: query, limit: 20);
+  }
+
   Future<void> setRuleSenderFilter({
     required String sender,
     required String senderName,

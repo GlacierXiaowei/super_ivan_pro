@@ -12,6 +12,7 @@ class FakeDesktopService implements DesktopService {
   int restartCallCount = 0;
   String? lastHistorySearchChat;
   String? lastHistorySearchQuery;
+  String? lastHistoryChatSearchQuery;
 
   @override
   Future<DesktopSnapshot> loadSnapshot() async => _snapshot;
@@ -59,6 +60,23 @@ class FakeDesktopService implements DesktopService {
         lastTimestamp: 1778000003,
         lastContent: '最近一条历史发言',
         messageCount: 2,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<HistoryChatCandidate>> searchHistoryChats({
+    required String query,
+    int limit = 20,
+  }) async {
+    lastHistoryChatSearchQuery = query;
+    return const [
+      HistoryChatCandidate(
+        talker: '123456@chatroom',
+        displayName: '项目讨论群',
+        lastTimestamp: 1778000004,
+        summary: '最近一条群消息',
+        source: 'session',
       ),
     ];
   }

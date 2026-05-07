@@ -72,6 +72,25 @@ void main() {
     expect(service.lastSavedRule?.toRulePayload()['sender'], 'wxid_alice');
   });
 
+  test('searches history chats and saves selected chat target', () async {
+    final service = FakeDesktopService.seed();
+    final controller = DesktopConsoleController(service);
+
+    await controller.initialize();
+    final candidates = await controller.searchHistoryChats(query: '项目');
+    await controller.saveTarget(
+      displayName: candidates.single.displayName,
+      talker: candidates.single.talker,
+      isGroup: true,
+    );
+
+    expect(service.lastHistoryChatSearchQuery, '项目');
+    expect(candidates.single.talker, '123456@chatroom');
+    expect(service.lastSavedTarget?.displayName, '项目讨论群');
+    expect(service.lastSavedTarget?.talker, '123456@chatroom');
+    expect(service.lastSavedTarget?.isGroup, isTrue);
+  });
+
   test('arms and disarms through the service', () async {
     final service = FakeDesktopService.seed();
     final controller = DesktopConsoleController(service);
