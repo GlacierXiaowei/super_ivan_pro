@@ -317,6 +317,30 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(len(events_payload["events"]), 2)
             self.assertEqual(events_payload["events"][0]["talker_name"], "文件传输助手")
 
+    def test_disarmed_arm_state_update_applies_max_triggers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            status_code, status = app.handle_json(
+                "POST",
+                "/arm-state",
+                {"enabled": False, "max_triggers": 4},
+            )
+
+            self.assertEqual(status_code, 200)
+            self.assertFalse(status["armed"])
+            self.assertEqual(status["max_triggers"], 4)
+            self.assertEqual(status["remaining_triggers"], 4)
+
     def test_history_senders_endpoint_returns_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

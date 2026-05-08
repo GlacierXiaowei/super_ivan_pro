@@ -1435,3 +1435,49 @@ powershell -ExecutionPolicy Bypass -File .\tools\windows\package_portable_releas
    - `watcher_error=""`
    - `armed=False`
    - `mode=rapid`
+
+### 2026-05-08 disarm 状态触发次数保存修复
+
+#### 本轮定位到的问题
+
+1. 当前本机 `GET http://127.0.0.1:18090/status` 不可用，未启动真实桌面服务，也未操作 WeChat 窗口。
+2. 延迟功能代码链路复查结果：
+   - Flutter 规则面板会提交 `reply_delay_ms`。
+   - Python service 会把 `reply_delay_ms` 写入规则并在 `/status` 回传。
+   - `WeChatAutomationBot` 在 `rule_match` 后先执行 `reply_delay_ms` sleep，再进入 dispatch。
+   - rapid 模式仍会写入 `poll_interval_ms=20`、`inter_message_delay_ms=0`、`current_chat_fast_send=true`。
+3. “disarm 时无法更新触发次数”的根因在 `/arm-state`：
+   - `enabled=false` 分支只调用 `store.disarm(reason="manual_disarm")`。
+   - 请求体中的 `max_triggers` 被忽略。
+   - 因此 UI 在 disarm 状态保存规则时，后端仍保留旧的最大触发次数。
+
+#### 本轮修复
+
+1. `ArmStateStore.disarm(...)` 新增可选 `max_triggers` 参数。
+2. `/arm-state` 的 `enabled=false` 分支现在会读取请求体中的 `max_triggers` 并传给 `disarm(...)`。
+3. 当 disarm 状态下的最大触发次数被改动时，会重置 `triggers_sent=0`，让 `remaining_triggers` 立即按新预算显示。
+4. 新增回归测试：
+   - `test_disarmed_arm_state_update_applies_max_triggers`
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py -v
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+flutter build windows
+git diff --check
+```
+
+结果：
+
+1. 新增回归测试先红后绿，红灯确认为 `max_triggers` 返回旧值 `1` 而不是请求中的 `4`。
+2. Python 全量测试总计 `59/59` 通过。
+3. `flutter analyze` 无问题。
+4. Flutter 全量测试通过。
+5. Windows 打包成功生成：
+   - `build/windows/x64/runner/Release/super_ivan_pro.exe`
+6. 本轮没有启动真实 bot/source，没有 arm，也没有触发真实发送。

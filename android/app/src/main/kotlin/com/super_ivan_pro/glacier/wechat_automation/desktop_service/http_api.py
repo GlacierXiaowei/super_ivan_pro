@@ -383,7 +383,9 @@ class DesktopServiceApp:
                 max_triggers = int(raw_max)
                 store.arm(max_triggers=max_triggers)
             else:
-                store.disarm(reason="manual_disarm")
+                raw_max = body.get("max_triggers")
+                max_triggers = int(raw_max) if raw_max is not None else None
+                store.disarm(reason="manual_disarm", max_triggers=max_triggers)
             return HTTPStatus.OK, self._build_status(limit=20, refresh_events=False)
 
         if normalized_method == "GET" and normalized_path == "/events/recent":

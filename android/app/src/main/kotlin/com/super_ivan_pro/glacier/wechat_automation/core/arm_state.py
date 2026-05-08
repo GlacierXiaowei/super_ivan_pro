@@ -113,13 +113,21 @@ class ArmStateStore:
         self._write(state)
         return state
 
-    def disarm(self, *, reason: str = "not_armed") -> ArmState:
+    def disarm(self, *, reason: str = "not_armed", max_triggers: int | None = None) -> ArmState:
         current = self.read()
+        budget = current.max_triggers if current.max_triggers >= 0 else DEFAULT_MAX_TRIGGERS
+        triggers_sent = current.triggers_sent if current.triggers_sent >= 0 else 0
+        if max_triggers is not None:
+            budget = int(max_triggers)
+            if budget < 0:
+                budget = 0
+            if budget != current.max_triggers:
+                triggers_sent = 0
         state = ArmState(
             enabled=False,
             mode=current.mode or DEFAULT_MODE,
-            max_triggers=current.max_triggers if current.max_triggers >= 0 else DEFAULT_MAX_TRIGGERS,
-            triggers_sent=current.triggers_sent if current.triggers_sent >= 0 else 0,
+            max_triggers=budget,
+            triggers_sent=triggers_sent,
             reason=reason,
         )
         self._write(state)
