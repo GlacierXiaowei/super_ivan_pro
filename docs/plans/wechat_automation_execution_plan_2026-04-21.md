@@ -1,6 +1,6 @@
 # WeChat Automation Execution Plan
 
-Saved under `glacier/superpower/plans` to keep the working plan close to the
+Saved under `docs/plans` to keep the working plan close to the
 implementation.
 
 ## Locked first milestone

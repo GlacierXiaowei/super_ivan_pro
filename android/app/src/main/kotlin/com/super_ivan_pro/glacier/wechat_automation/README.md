@@ -1,7 +1,7 @@
 # WeChat Automation
 
 This directory contains the standalone experiment module for the WeChat 4.1.7
-automation workflow discussed in `glacier/discussion_progress`.
+automation workflow discussed in `docs/progress`.
 
 ## Current scope
 
@@ -35,7 +35,7 @@ Important safety boundary:
 
 - this mode must not send unless the foreground window is WeChat
 - this mode must not send unless the focused control is editable
-- any real send still requires explicit user approval before the manual probe step
+- report the manual real-send probe to the user before running it so they can coordinate the session
 
 ## Layout
 

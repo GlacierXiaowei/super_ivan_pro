@@ -32,7 +32,7 @@ Why this changed:
 
 Focused design note:
 
-- `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_armed_current_chat_design_2026-04-22.md`
+- `docs/progress/wechat_automation_armed_current_chat_design_2026-04-22.md`
 
 ## Locked stage 1 goal
 
@@ -67,8 +67,8 @@ This is intentionally not integrated into Flutter yet.
 7. Installed `wx4py==0.2.1` into the active Python 3.10 environment.
 8. Verified that the real sender backend can be imported and created safely
    without sending a WeChat message.
-9. Saved plan and progress notes under `glacier/discussion_progress` and
-   `glacier/superpower/plans`.
+9. Saved plan and progress notes under `docs/progress` and
+   `docs/plans`.
 10. Added file-backed arm/disarm state under
     `config/arm_state.local.json`.
 11. Gated the bot on armed state and trigger-budget exhaustion.
@@ -491,12 +491,12 @@ Result:
 ## Related files
 
 - build progress:
-  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_build_progress_2026-04-21.md`
+  `docs/progress/wechat_automation_build_progress_2026-04-21.md`
 - live watcher progress:
-  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_live_watcher_progress_2026-04-22.md`
+  `docs/progress/wechat_automation_live_watcher_progress_2026-04-22.md`
 - stage 1 config note:
-  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_stage1_config_2026-04-22.md`
+  `docs/progress/wechat_automation_stage1_config_2026-04-22.md`
 - execution plan:
-  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/superpower/plans/wechat_automation_execution_plan_2026-04-21.md`
+  `docs/plans/wechat_automation_execution_plan_2026-04-21.md`
 - armed current-chat design:
-  `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_armed_current_chat_design_2026-04-22.md`
+  `docs/progress/wechat_automation_armed_current_chat_design_2026-04-22.md`

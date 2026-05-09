@@ -21,7 +21,7 @@
 - Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/matcher.py`
 - Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/core/watcher_adapter.py`
 - Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/README.md`
-- Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_current_status_2026-04-21.md`
+- Modify: `docs/progress/wechat_automation_current_status_2026-04-21.md`
 
 ### Task 1: Add Explicit Chat Scope Support
 
@@ -374,7 +374,7 @@ git commit -m "feat(glacier): add web console backend"
 - Create: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/web/index.html`
 - Create: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/web/app.js`
 - Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/README.md`
-- Modify: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_current_status_2026-04-21.md`
+- Modify: `docs/progress/wechat_automation_current_status_2026-04-21.md`
 
 - [ ] **Step 1: Write the failing UI expectation as a manual check**
 
@@ -474,6 +474,6 @@ Expected:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/web android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/README.md android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_current_status_2026-04-21.md
+git add android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/web android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/README.md docs/progress/wechat_automation_current_status_2026-04-21.md
 git commit -m "feat(glacier): add web rule console"
 ```

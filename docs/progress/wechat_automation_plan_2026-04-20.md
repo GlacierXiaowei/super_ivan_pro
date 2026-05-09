@@ -246,8 +246,9 @@ send:
 如果在当前项目内单独落实现验代码, 建议新增一个独立目录, 不和 Flutter 主逻辑耦合:
 
 ```text
-glacier/
-  discussion_progress/
+docs/
+  progress/
+android/app/src/main/kotlin/com/super_ivan_pro/glacier/
   wechat_automation/
     README.md
     config/
