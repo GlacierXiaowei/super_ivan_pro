@@ -9,7 +9,7 @@ Status: phase 1 implementation completed, Windows packaging blocked by local too
 
 已写入本地计划文档：
 
-- `android/app/src/main/kotlin/com/super_ivan_pro/glacier/superpower/plans/wechat_automation_windows_desktop_phase1_plan_2026-04-23.md`
+- `docs/plans/wechat_automation_windows_desktop_phase1_plan_2026-04-23.md`
 
 已提交：
 

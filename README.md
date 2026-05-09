@@ -35,7 +35,7 @@ Super Ivan Pro 当前重点是 Windows 微信自动化桌面控制台。Flutter 
 
 ## 安全边界
 
-- 不要在未确认目标窗口、规则和 `armed` 状态前测试真实发送。
+- 实机联调或真实发送前，先向当前操作者报告准备执行的步骤，方便对方配合。
 - `启动服务`、`重启服务`、`切换模式`、`保存对象`、`保存规则` 本身不会发送消息；它们只会启动或重启 bot。
 - `Arm` 会允许后续匹配到的新消息触发发送，测试时默认保持 `armed=false`。
 - 不要提交本地测试配置文件，例如 `arm_state.local.json`、`rules.local.json`、`runtime.local.json`。
@@ -55,6 +55,11 @@ flutter build windows
 build\windows\x64\runner\Release\super_ivan_pro.exe
 ```
 
+## 文档索引
+
+- 仓库文档总索引：`docs/README.md`
+- 当前桌面控制台连续性记录：`docs/progress/wechat_automation_windows_desktop_progress_2026-04-23.md`
+
 ## 关键代码
 
 - Flutter 本地服务客户端：`lib/features/desktop_console/data/http_desktop_service.dart`
@@ -62,4 +67,4 @@ build\windows\x64\runner\Release\super_ivan_pro.exe
 - Flutter 控制器：`lib/features/desktop_console/controller/desktop_console_controller.dart`
 - Python HTTP API：`android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/desktop_service/http_api.py`
 - Python live bot 入口：`android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/run_bot.py`
-- 进度记录：`android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_windows_desktop_progress_2026-04-23.md`
+- 进度记录：`docs/progress/wechat_automation_windows_desktop_progress_2026-04-23.md`

@@ -1047,7 +1047,7 @@ git commit -m "feat(glacier): add arm controls to web console"
 
 **Files:**
 - Modify: `D:\flutter_app\super_ivan_pro\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\README.md`
-- Modify: `D:\flutter_app\super_ivan_pro\android\app\src\main\kotlin\com\super_ivan_pro\glacier\discussion_progress\wechat_automation_current_status_2026-04-21.md`
+- Modify: `D:\flutter_app\super_ivan_pro\docs\progress\wechat_automation_current_status_2026-04-21.md`
 - Test: `D:\flutter_app\super_ivan_pro\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\tests\test_arm_state_store.py`
 - Test: `D:\flutter_app\super_ivan_pro\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\tests\test_bot_armed_current_chat.py`
 - Test: `D:\flutter_app\super_ivan_pro\android\app\src\main\kotlin\com\super_ivan_pro\glacier\wechat_automation\tests\test_current_chat_sender.py`
@@ -1077,7 +1077,7 @@ Important safety boundary:
 
 - [ ] **Step 2: Update the continuity doc with the implementation result**
 
-Add this summary block to `discussion_progress/wechat_automation_current_status_2026-04-21.md`:
+Add this summary block to `docs/progress/wechat_automation_current_status_2026-04-21.md`:
 
 ```markdown
 ## Armed current-chat stage result
@@ -1120,6 +1120,6 @@ Expected:
 - [ ] **Step 6: Commit the documentation and verification stage**
 
 ```bash
-git add README.md ../discussion_progress/wechat_automation_current_status_2026-04-21.md
+git add README.md docs/progress/wechat_automation_current_status_2026-04-21.md
 git commit -m "docs(glacier): document armed current-chat mode"
 ```

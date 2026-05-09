@@ -51,7 +51,7 @@ Explicitly deferred to later plans:
 - `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/scripts/desktop_service.py`: local service entry script.
 - `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_store.py`: store tests.
 - `android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests/test_desktop_service_api.py`: HTTP API tests.
-- `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_windows_desktop_progress_2026-04-23.md`: local continuity note for the new desktop stage.
+- `docs/progress/wechat_automation_windows_desktop_progress_2026-04-23.md`: local continuity note for the new desktop stage.
 
 ### Task 1: Rebuild the Flutter desktop foundation
 
@@ -813,7 +813,7 @@ git commit -m "feat(glacier): wire desktop console to local service"
 ### Task 5: Record continuity, run verification, and prepare the next milestone
 
 **Files:**
-- Create: `android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_windows_desktop_progress_2026-04-23.md`
+- Create: `docs/progress/wechat_automation_windows_desktop_progress_2026-04-23.md`
 - Modify: `README.md`
 
 - [ ] **Step 1: Write the failing documentation checklist**
@@ -863,7 +863,7 @@ Saved at: 2026-04-23
 - [ ] **Step 4: Commit**
 
 ```bash
-git add README.md android/app/src/main/kotlin/com/super_ivan_pro/glacier/discussion_progress/wechat_automation_windows_desktop_progress_2026-04-23.md
+git add README.md docs/progress/wechat_automation_windows_desktop_progress_2026-04-23.md
 git commit -m "docs(glacier): record desktop phase1 progress"
 ```
 
