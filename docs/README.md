@@ -19,6 +19,7 @@ root because the tooling reads it from there.
 - `module-development-standard.md`: optional module development boundaries
 - `module-installation-standard.md`: edition-level module installation/removal
 - `edition-build-standard.md`: multi-edition branch, build, and verification rules
+- `core-module-host-design.md`: core-side module host design for edition modules
 - `windows-portable-distribution.md`: Windows portable packaging notes
 - `windows-portable-user-guide.zh-CN.md`: tester-facing Windows usage guide
 
