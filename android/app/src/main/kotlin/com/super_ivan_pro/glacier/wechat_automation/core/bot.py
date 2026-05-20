@@ -92,7 +92,16 @@ class WeChatAutomationBot:
                         delayed_state.reason,
                     )
                     return
-            report = self._dispatcher.dispatch(rule, event)
+            try:
+                report = self._dispatcher.dispatch(rule, event)
+            except Exception as exc:
+                self._logger.error(
+                    "dispatch_aborted rule=%s seq=%s error=%s",
+                    rule.id,
+                    event.seq,
+                    exc,
+                )
+                return
             self._remember_sent_echoes(rule, event, report.sent)
             if report.sent == len(rule.replies):
                 updated = self._arm_state_store.record_success()

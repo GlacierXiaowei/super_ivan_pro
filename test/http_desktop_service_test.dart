@@ -20,7 +20,9 @@ void main() {
               'service_state': 'running',
               'watcher_state': 'unavailable',
               'watcher_error': 'watcher offline',
+              'last_error': 'RuntimeError: foreground_not_wechat',
               'armed': true,
+              'arm_reason': 'armed',
               'mode': 'rapid',
               'rule_pattern': 'START',
               'replies': ['TEST', '第二条'],
@@ -68,6 +70,8 @@ void main() {
     expect(snapshot.serviceStatusLabel, 'running');
     expect(snapshot.watcherStateLabel, 'unavailable');
     expect(snapshot.watcherError, 'watcher offline');
+    expect(snapshot.lastError, 'RuntimeError: foreground_not_wechat');
+    expect(snapshot.armReason, 'armed');
     expect(snapshot.mode, DesktopMode.rapid);
     expect(snapshot.activeTarget.displayName, '文件传输助手');
     expect(snapshot.recentChats.single.talker, 'filehelper');

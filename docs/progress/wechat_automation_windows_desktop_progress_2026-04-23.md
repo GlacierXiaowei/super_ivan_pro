@@ -1481,3 +1481,62 @@ git diff --check
 5. Windows 打包成功生成：
    - `build/windows/x64/runner/Release/super_ivan_pro.exe`
 6. 本轮没有启动真实 bot/source，没有 arm，也没有触发真实发送。
+
+### 2026-05-16 群成员过滤、发送失败兜底与错误提示修复
+
+#### 本轮定位到的问题
+
+1. 延迟单位确认仍是毫秒：
+   - Flutter 提交字段为 `reply_delay_ms`。
+   - Python bot 使用 `rule.reply_delay_ms / 1000.0` 转为秒后 sleep。
+   - 因此 UI 中 `500` 表示 0.5 秒。
+2. 群成员过滤存在无效状态：
+   - 规则可以出现 `sender_name` 有值但 `sender` 为空。
+   - matcher 实际只使用 `sender` 匹配事件发送者，因此这种状态会让“看起来选中了成员”，但实际不限制成员。
+3. 发送失败会导致 live bot 退出：
+   - `CurrentChatSender` 在前台不是微信、输入框找不到等情况下抛出 `foreground_not_wechat` / `chat_input_not_found`。
+   - dispatcher 记录 `dispatch_failure` 后继续抛出。
+   - `WeChatAutomationBot.process(...)` 原先没有兜底，会让 `run_bot.py` 退出。
+   - 这解释了“ARM 看似打开但不生效，反复保存/重启后又恢复”的现象：保存/重启会重新拉起 bot。
+4. 历史群聊搜索只用最终展示名参与匹配：
+   - 一个群同时存在 session 标题和 contact 旧名时，旧名不会参与搜索。
+   - 改名前/改名后的群名因此可能只命中其中一个。
+5. 发送失败目前主要藏在日志里，桌面 UI 没有醒目的错误区。
+
+#### 本轮修复
+
+1. bot 现在会兜住最终发送失败：
+   - 保留 dispatcher 的 `dispatch_failure` 详细日志。
+   - 额外记录 `dispatch_aborted rule=... seq=... error=...`。
+   - 不再让单次发送失败杀死 live bot。
+2. Flutter 保存规则时会清理孤儿成员名：
+   - `sender` 为空时强制清空 `senderName`。
+   - 手动改成另一个 sender ID 时也不会沿用旧成员显示名。
+3. Python service 写入/读取规则时会归一化成员字段：
+   - `sender` 为空则 `sender_name` 也为空。
+4. 历史群聊搜索增加别名匹配：
+   - session 标题和 contact 名都会进入查询命中范围。
+   - 返回展示名仍优先使用当前 session 标题。
+5. `/status` 新增：
+   - `arm_reason`
+   - `last_error`
+6. Flutter 状态面板新增明确提示：
+   - `监听状态原因: ...`
+   - `最近发送错误: ...`
+
+#### 本轮验证
+
+已执行：
+
+```bash
+python -m unittest discover android/app/src/main/kotlin/com/super_ivan_pro/glacier/wechat_automation/tests -p "test_*.py" -v
+flutter analyze
+flutter test
+```
+
+结果：
+
+1. Python 全量测试 `62/62` 通过。
+2. `flutter analyze` 无问题。
+3. Flutter 全量测试 `33/33` 通过。
+4. `GET http://127.0.0.1:18090/status` 当前连接被拒绝，说明本地 desktop service 未启动；本轮没有启动真实 bot/source，没有 arm，也没有触发真实发送。

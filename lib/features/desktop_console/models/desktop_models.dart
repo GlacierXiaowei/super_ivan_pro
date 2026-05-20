@@ -203,6 +203,7 @@ class DesktopSnapshot {
     required this.serviceStatusLabel,
     required this.watcherStateLabel,
     required this.watcherError,
+    required this.lastError,
     required this.activeTarget,
     required this.recentChats,
     required this.recentEvents,
@@ -210,6 +211,7 @@ class DesktopSnapshot {
     required this.mode,
     required this.rule,
     required this.armState,
+    required this.armReason,
   });
 
   factory DesktopSnapshot.seed() {
@@ -217,6 +219,7 @@ class DesktopSnapshot {
       serviceStatusLabel: 'running',
       watcherStateLabel: 'running',
       watcherError: '',
+      lastError: '',
       activeTarget: ActiveTarget(
         displayName: '文件传输助手',
         talker: 'filehelper',
@@ -254,6 +257,7 @@ class DesktopSnapshot {
         maxTriggers: 1,
         remainingTriggers: 1,
       ),
+      armReason: 'armed',
     );
   }
 
@@ -262,6 +266,7 @@ class DesktopSnapshot {
       serviceStatusLabel: '本地服务未启动',
       watcherStateLabel: 'unknown',
       watcherError: '',
+      lastError: '',
       activeTarget: ActiveTarget(displayName: '', talker: '', isGroup: false),
       recentChats: [],
       recentEvents: [],
@@ -273,6 +278,7 @@ class DesktopSnapshot {
         maxTriggers: 1,
         remainingTriggers: 1,
       ),
+      armReason: 'not_armed',
     );
   }
 
@@ -331,6 +337,7 @@ class DesktopSnapshot {
       serviceStatusLabel: json['service_state'] as String? ?? 'running',
       watcherStateLabel: json['watcher_state'] as String? ?? 'unknown',
       watcherError: json['watcher_error'] as String? ?? '',
+      lastError: json['last_error'] as String? ?? '',
       activeTarget: ActiveTarget(
         displayName: activeTarget?['display_name'] as String? ?? '',
         talker: activeTarget?['talker'] as String? ?? '',
@@ -364,12 +371,15 @@ class DesktopSnapshot {
         maxTriggers: json['max_triggers'] as int? ?? 1,
         remainingTriggers: json['remaining_triggers'] as int?,
       ),
+      armReason:
+          json['arm_reason'] as String? ?? json['reason'] as String? ?? '',
     );
   }
 
   final String serviceStatusLabel;
   final String watcherStateLabel;
   final String watcherError;
+  final String lastError;
   final ActiveTarget activeTarget;
   final List<RecentChatPreview> recentChats;
   final List<RecentEventPreview> recentEvents;
@@ -377,11 +387,13 @@ class DesktopSnapshot {
   final DesktopMode mode;
   final DesktopRule rule;
   final DesktopArmState armState;
+  final String armReason;
 
   DesktopSnapshot copyWith({
     String? serviceStatusLabel,
     String? watcherStateLabel,
     String? watcherError,
+    String? lastError,
     ActiveTarget? activeTarget,
     List<RecentChatPreview>? recentChats,
     List<RecentEventPreview>? recentEvents,
@@ -389,11 +401,13 @@ class DesktopSnapshot {
     DesktopMode? mode,
     DesktopRule? rule,
     DesktopArmState? armState,
+    String? armReason,
   }) {
     return DesktopSnapshot(
       serviceStatusLabel: serviceStatusLabel ?? this.serviceStatusLabel,
       watcherStateLabel: watcherStateLabel ?? this.watcherStateLabel,
       watcherError: watcherError ?? this.watcherError,
+      lastError: lastError ?? this.lastError,
       activeTarget: activeTarget ?? this.activeTarget,
       recentChats: recentChats ?? this.recentChats,
       recentEvents: recentEvents ?? this.recentEvents,
@@ -401,6 +415,7 @@ class DesktopSnapshot {
       mode: mode ?? this.mode,
       rule: rule ?? this.rule,
       armState: armState ?? this.armState,
+      armReason: armReason ?? this.armReason,
     );
   }
 

@@ -62,6 +62,7 @@ class _RulePanelState extends State<RulePanel> {
             widget.snapshot.rule.replyDelayMs ||
         oldWidget.snapshot.rule.matchMode != widget.snapshot.rule.matchMode ||
         oldWidget.snapshot.rule.sender != widget.snapshot.rule.sender ||
+        oldWidget.snapshot.rule.senderName != widget.snapshot.rule.senderName ||
         oldWidget.snapshot.armState.maxTriggers !=
             widget.snapshot.armState.maxTriggers) {
       _syncFromSnapshot();

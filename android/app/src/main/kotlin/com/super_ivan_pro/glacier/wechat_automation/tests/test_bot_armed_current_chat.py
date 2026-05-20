@@ -28,6 +28,19 @@ class MemorySender:
         self.sent.append(message)
 
 
+class FailingOnceSender:
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+        self.calls = 0
+
+    def send_text(self, context: MessageEvent, message: str) -> None:
+        _ = context
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("foreground_not_wechat")
+        self.sent.append(message)
+
+
 def build_event(seq: str) -> MessageEvent:
     return MessageEvent(
         seq=seq,
@@ -163,6 +176,26 @@ class ArmedBotTest(unittest.TestCase):
             bot.process(build_group_event("echo", "wxid_w541fvgeqaq922", "TEST"))
 
             self.assertEqual(sender.sent, ["TEST"])
+
+    def test_dispatch_failure_does_not_stop_future_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ArmStateStore(Path(tmp) / "arm_state.json")
+            store.arm(max_triggers=2)
+            sender = FailingOnceSender()
+            dispatcher = SendDispatcher(sender, RuntimeConfig(retry_count=0), logging.getLogger("test"))
+            bot = WeChatAutomationBot(
+                [build_rule()],
+                dispatcher,
+                logging.getLogger("test"),
+                store,
+            )
+
+            bot.process(build_event("evt-1"))
+            bot.process(build_event("evt-2"))
+
+            self.assertEqual(sender.sent, ["TEST", "第二条"])
+            self.assertTrue(store.read().enabled)
+            self.assertEqual(store.read().triggers_sent, 1)
 
 
 if __name__ == "__main__":

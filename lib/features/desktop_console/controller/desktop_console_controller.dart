@@ -45,6 +45,14 @@ class DesktopConsoleController extends ChangeNotifier {
     required String sender,
   }) async {
     await _runBusy(() async {
+      final normalizedSender = sender.trim();
+      final currentSender = snapshot?.rule.sender ?? '';
+      final currentSenderName = snapshot?.rule.senderName ?? '';
+      final normalizedSenderName = normalizedSender.isEmpty
+          ? ''
+          : normalizedSender == currentSender
+          ? currentSenderName
+          : '';
       final ruleSnapshot = await _service.saveRule(
         DesktopRule(
           pattern: pattern,
@@ -54,8 +62,8 @@ class DesktopConsoleController extends ChangeNotifier {
           matchMode: matchMode,
           talker: snapshot?.activeTarget.talker ?? '',
           isGroup: snapshot?.activeTarget.isGroup ?? false,
-          sender: sender,
-          senderName: snapshot?.rule.senderName ?? '',
+          sender: normalizedSender,
+          senderName: normalizedSenderName,
         ),
       );
       final currentArmState = ruleSnapshot.armState;

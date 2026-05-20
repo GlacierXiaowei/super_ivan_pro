@@ -317,6 +317,42 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(len(events_payload["events"]), 2)
             self.assertEqual(events_payload["events"][0]["talker_name"], "文件传输助手")
 
+    def test_rule_payload_clears_orphan_sender_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            payload = [
+                {
+                    "id": "desktop_rule",
+                    "enabled": True,
+                    "talker": "123456@chatroom",
+                    "sender": "",
+                    "sender_name": "Alice Remark",
+                    "chat_scope": "group",
+                    "type": "unknown",
+                    "match_mode": "any",
+                    "pattern": "",
+                    "cooldown_ms": 0,
+                    "replies": ["ACK"],
+                }
+            ]
+            status_code, updated = app.handle_json("POST", "/rules", {"rules": payload})
+
+            self.assertEqual(status_code, 200)
+            self.assertEqual(updated["rules"][0]["sender"], "")
+            self.assertEqual(updated["rules"][0]["sender_name"], "")
+            stored_rules = json.loads((runtime_root / "config" / "rules.local.json").read_text(encoding="utf-8"))
+            self.assertEqual(stored_rules[0]["sender_name"], "")
+
     def test_disarmed_arm_state_update_applies_max_triggers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -470,6 +506,32 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(status_code, 200)
             self.assertIn("recent_logs", status)
             self.assertGreaterEqual(len(status["recent_logs"]), 2)
+
+    def test_status_promotes_latest_dispatch_failure_to_last_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            logs_dir = runtime_root / "logs"
+            (logs_dir / "wechat_automation.log").write_text(
+                "2026-05-14 INFO rule_match rule=desktop_rule seq=1\n"
+                "2026-05-14 ERROR dispatch_failure rule=desktop_rule attempt=1 reply_index=1\n"
+                "RuntimeError: foreground_not_wechat\n",
+                encoding="utf-8",
+            )
+
+            status_code, status = app.handle_json("GET", "/status")
+
+            self.assertEqual(status_code, 200)
+            self.assertIn("foreground_not_wechat", status["last_error"])
 
     def test_status_reports_watcher_unavailable_when_history_fetch_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

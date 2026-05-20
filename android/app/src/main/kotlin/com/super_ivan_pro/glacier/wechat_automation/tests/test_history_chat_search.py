@@ -84,6 +84,11 @@ class HistoryChatSearchTest(unittest.TestCase):
             self.assertEqual(session_results[0].summary, "今天开会")
             self.assertEqual(session_results[0].source, "session")
 
+            renamed_results = search_history_chats(source_root, query="旧群名", limit=10)
+            self.assertEqual(len(renamed_results), 1)
+            self.assertEqual(renamed_results[0].talker, "111@chatroom")
+            self.assertEqual(renamed_results[0].display_name, "项目讨论群")
+
             contact_results = search_history_chats(source_root, query="历史", limit=10)
             self.assertEqual(len(contact_results), 1)
             self.assertEqual(contact_results[0].talker, "222@chatroom")

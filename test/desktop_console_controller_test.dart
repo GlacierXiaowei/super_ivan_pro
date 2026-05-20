@@ -72,6 +72,30 @@ void main() {
     expect(service.lastSavedRule?.toRulePayload()['sender'], 'wxid_alice');
   });
 
+  test('clears stale sender name when member sender is cleared', () async {
+    final service = FakeDesktopService.seed();
+    final controller = DesktopConsoleController(service);
+
+    await controller.initialize();
+    await controller.setRuleSenderFilter(
+      sender: 'wxid_alice',
+      senderName: 'Alice Remark',
+    );
+    await controller.saveRule(
+      pattern: 'GO',
+      replies: ['OK'],
+      cooldownMs: 0,
+      maxTriggers: 1,
+      matchMode: DesktopMatchMode.any,
+      replyDelayMs: 0,
+      sender: '',
+    );
+
+    expect(service.lastSavedRule?.sender, '');
+    expect(service.lastSavedRule?.senderName, '');
+    expect(service.lastSavedRule?.toRulePayload()['sender_name'], '');
+  });
+
   test('searches history chats and saves selected chat target', () async {
     final service = FakeDesktopService.seed();
     final controller = DesktopConsoleController(service);

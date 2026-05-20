@@ -16,6 +16,7 @@ class HistoryChatCandidate:
     last_timestamp: int
     summary: str
     source: str
+    aliases: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -43,9 +44,10 @@ def search_history_chats(
             if not _is_group_talker(talker):
                 continue
 
+            contact_name = contact_chats.get(talker, "")
             display_name = (
                 row["session_title"]
-                or contact_chats.get(talker, "")
+                or contact_name
                 or talker
             )
             candidate = HistoryChatCandidate(
@@ -54,6 +56,7 @@ def search_history_chats(
                 last_timestamp=row["last_timestamp"],
                 summary=row["summary"],
                 source="session",
+                aliases=_unique_names(row["session_title"], contact_name),
             )
             candidates[talker] = candidate
 
@@ -206,11 +209,24 @@ def _collapse_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
+def _unique_names(*values: str) -> tuple[str, ...]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        names.append(normalized)
+    return tuple(names)
+
+
 def _matches_query(query: str, candidate: HistoryChatCandidate) -> bool:
     haystacks = [
         candidate.talker,
         candidate.display_name,
         candidate.summary,
         candidate.source,
+        *candidate.aliases,
     ]
     return any(query in item.lower() for item in haystacks if item)

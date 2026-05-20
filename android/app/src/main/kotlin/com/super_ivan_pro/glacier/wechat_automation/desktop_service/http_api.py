@@ -65,6 +65,14 @@ def _log_to_payload(source: str, message: str) -> dict[str, str]:
     }
 
 
+def _normalize_rule_payload(rule: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(rule)
+    sender = str(normalized.get("sender", "") or "").strip()
+    normalized["sender"] = sender
+    normalized["sender_name"] = str(normalized.get("sender_name", "") or "").strip() if sender else ""
+    return normalized
+
+
 def _history_sender_to_payload(candidate: object) -> dict[str, object]:
     if isinstance(candidate, HistorySenderCandidate):
         return candidate.to_dict()
@@ -357,8 +365,13 @@ class DesktopServiceApp:
                     "ok": False,
                     "error": "rules payload must be a list",
                 }
+            normalized_rules = [
+                _normalize_rule_payload(rule)
+                for rule in rules
+                if isinstance(rule, dict)
+            ]
             self._rules_path.write_text(
-                json.dumps(rules, ensure_ascii=False, indent=2),
+                json.dumps(normalized_rules, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
             if self._process_manager.is_running():
@@ -468,6 +481,7 @@ class DesktopServiceApp:
         state = self._store.load()
         arm_state = self._arm_state_payload()
         rules = self._read_rules()
+        recent_logs = self._fetch_recent_logs(limit=80)
         if refresh_events:
             events = self._fetch_recent_events(limit=limit, chat="")
         else:
@@ -480,6 +494,8 @@ class DesktopServiceApp:
             "watcher_state": "unavailable" if self._last_watcher_error else "running",
             "watcher_error": self._last_watcher_error,
             "armed": arm_state["armed"],
+            "arm_reason": arm_state["reason"],
+            "last_error": _latest_actionable_error(recent_logs, self._last_watcher_error),
             "mode": state.get("mode", "normal"),
             "rule_pattern": str(first_rule.get("pattern", "")),
             "rules": rules,
@@ -494,7 +510,7 @@ class DesktopServiceApp:
             "rule_sender_name": str(first_rule.get("sender_name", "")),
             "max_triggers": arm_state["max_triggers"],
             "remaining_triggers": arm_state["remaining_triggers"],
-            "recent_logs": self._fetch_recent_logs(limit=80),
+            "recent_logs": recent_logs,
         }
         self._store.save(status)
         return status
@@ -503,7 +519,7 @@ class DesktopServiceApp:
         try:
             payload = json.loads(self._rules_path.read_text(encoding="utf-8"))
             if isinstance(payload, list):
-                return [item for item in payload if isinstance(item, dict)]
+                return [_normalize_rule_payload(item) for item in payload if isinstance(item, dict)]
         except (OSError, json.JSONDecodeError):
             pass
         return []
@@ -653,6 +669,25 @@ def _cached_recent_events(state: dict[str, Any]) -> list[dict[str, object]]:
     if not isinstance(cached, list):
         return []
     return [item for item in cached if isinstance(item, dict)]
+
+
+def _latest_actionable_error(logs: list[dict[str, str]], watcher_error: str) -> str:
+    markers = (
+        "dispatch_failure",
+        "dispatch_aborted",
+        "foreground_not_wechat",
+        "chat_input_not_found",
+        "chat_input_not_focused",
+        "current_chat_send_failed",
+        "wechat_decrypt_not_ready",
+    )
+    for entry in reversed(logs):
+        message = str(entry.get("message", "") or "")
+        if message.startswith("RuntimeError:"):
+            return message
+        if any(marker in message for marker in markers):
+            return message
+    return watcher_error
 
 
 def _first_enabled_rule(rules: list[dict[str, Any]]) -> dict[str, Any]:

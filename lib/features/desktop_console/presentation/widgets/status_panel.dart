@@ -58,6 +58,28 @@ class StatusPanel extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
+          if (snapshot.armReason.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('监听状态原因: ${snapshot.armReason}'),
+          ],
+          if (snapshot.lastError.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  '最近发送错误: ${snapshot.lastError}',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
