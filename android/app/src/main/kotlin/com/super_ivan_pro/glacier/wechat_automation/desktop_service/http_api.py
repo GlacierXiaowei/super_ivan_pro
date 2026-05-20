@@ -496,6 +496,7 @@ class DesktopServiceApp:
             "armed": arm_state["armed"],
             "arm_reason": arm_state["reason"],
             "last_error": _latest_actionable_error(recent_logs, self._last_watcher_error),
+            "last_trigger_status": _latest_trigger_status(recent_logs),
             "mode": state.get("mode", "normal"),
             "rule_pattern": str(first_rule.get("pattern", "")),
             "rules": rules,
@@ -688,6 +689,21 @@ def _latest_actionable_error(logs: list[dict[str, str]], watcher_error: str) -> 
         if any(marker in message for marker in markers):
             return message
     return watcher_error
+
+
+def _latest_trigger_status(logs: list[dict[str, str]]) -> str:
+    markers = (
+        "event_skip ",
+        "rule_skip ",
+        "rule_match ",
+    )
+    for entry in reversed(logs):
+        message = str(entry.get("message", "") or "")
+        for marker in markers:
+            marker_index = message.find(marker)
+            if marker_index >= 0:
+                return message[marker_index:]
+    return ""
 
 
 def _first_enabled_rule(rules: list[dict[str, Any]]) -> dict[str, Any]:

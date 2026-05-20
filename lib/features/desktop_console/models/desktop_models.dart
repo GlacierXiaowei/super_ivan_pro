@@ -204,6 +204,7 @@ class DesktopSnapshot {
     required this.watcherStateLabel,
     required this.watcherError,
     required this.lastError,
+    required this.lastTriggerStatus,
     required this.activeTarget,
     required this.recentChats,
     required this.recentEvents,
@@ -220,6 +221,7 @@ class DesktopSnapshot {
       watcherStateLabel: 'running',
       watcherError: '',
       lastError: '',
+      lastTriggerStatus: '',
       activeTarget: ActiveTarget(
         displayName: '文件传输助手',
         talker: 'filehelper',
@@ -267,6 +269,7 @@ class DesktopSnapshot {
       watcherStateLabel: 'unknown',
       watcherError: '',
       lastError: '',
+      lastTriggerStatus: '',
       activeTarget: ActiveTarget(displayName: '', talker: '', isGroup: false),
       recentChats: [],
       recentEvents: [],
@@ -338,6 +341,7 @@ class DesktopSnapshot {
       watcherStateLabel: json['watcher_state'] as String? ?? 'unknown',
       watcherError: json['watcher_error'] as String? ?? '',
       lastError: json['last_error'] as String? ?? '',
+      lastTriggerStatus: json['last_trigger_status'] as String? ?? '',
       activeTarget: ActiveTarget(
         displayName: activeTarget?['display_name'] as String? ?? '',
         talker: activeTarget?['talker'] as String? ?? '',
@@ -380,6 +384,7 @@ class DesktopSnapshot {
   final String watcherStateLabel;
   final String watcherError;
   final String lastError;
+  final String lastTriggerStatus;
   final ActiveTarget activeTarget;
   final List<RecentChatPreview> recentChats;
   final List<RecentEventPreview> recentEvents;
@@ -394,6 +399,7 @@ class DesktopSnapshot {
     String? watcherStateLabel,
     String? watcherError,
     String? lastError,
+    String? lastTriggerStatus,
     ActiveTarget? activeTarget,
     List<RecentChatPreview>? recentChats,
     List<RecentEventPreview>? recentEvents,
@@ -408,6 +414,7 @@ class DesktopSnapshot {
       watcherStateLabel: watcherStateLabel ?? this.watcherStateLabel,
       watcherError: watcherError ?? this.watcherError,
       lastError: lastError ?? this.lastError,
+      lastTriggerStatus: lastTriggerStatus ?? this.lastTriggerStatus,
       activeTarget: activeTarget ?? this.activeTarget,
       recentChats: recentChats ?? this.recentChats,
       recentEvents: recentEvents ?? this.recentEvents,

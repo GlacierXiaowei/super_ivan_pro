@@ -1540,3 +1540,45 @@ flutter test
 2. `flutter analyze` 无问题。
 3. Flutter 全量测试 `33/33` 通过。
 4. `GET http://127.0.0.1:18090/status` 当前连接被拒绝，说明本地 desktop service 未启动；本轮没有启动真实 bot/source，没有 arm，也没有触发真实发送。
+
+### 2026-05-20 测试群聊触发诊断与稳定群聊 ID 修复
+
+#### 本轮定位到的问题
+
+1. 本机只读 `GET http://127.0.0.1:18090/status` 显示：
+   - `service_state=running`
+   - `watcher_state=running`
+   - `armed=false`
+   - `arm_reason=budget_exhausted`
+   - 当前规则 `pattern=嗯3`
+   - 当前规则 `match_mode=any`
+2. 日志显示“测试群聊/嗯3”不是完全没触发：
+   - `12:02:13/12:02:31/12:02:32` 未触发原因是 `pattern_mismatch`，实际解析内容是 `额3`。
+   - `12:02:53` 已 `rule_match` 并发送 `Slytherin`。
+   - 发送后 `max_triggers=1` 用完，状态变为 `budget_exhausted`，后续消息被 `not_armed` 跳过。
+3. UI 语义存在混淆：
+   - 开启“任意消息触发”后，`触发文本` 实际不参与匹配。
+   - 但之前仍会把文本框中的 `嗯3` 保存到规则里，导致用户误以为正在按文本触发。
+4. 群聊 ID 链路存在不稳定风险：
+   - `wechat-decrypt` payload 中 `username` 是稳定 `@chatroom` ID。
+   - `chat` 是群显示名。
+   - 之前 watcher 把 `chat` 当 `event.talker`，导致历史搜索选中 `@chatroom` 后可能和 live 事件的显示名不一致。
+
+#### 本轮修复
+
+1. `WechatDecryptHistoryWatcher` 现在优先使用 payload `username` 作为稳定 `event.talker`。
+2. `event.talker_name` 保留 payload `chat` 作为显示名。
+3. `/status` 新增 `last_trigger_status`：
+   - 从日志中提取最近的 `event_skip` / `rule_skip` / `rule_match`。
+   - 用于直接判断当前是 `pattern_mismatch`、`not_armed`、`sender_mismatch` 还是已命中。
+4. Flutter 状态模型和状态面板新增：
+   - `最近触发状态: ...`
+5. 规则面板调整“任意消息触发”语义：
+   - 任意触发开启时保存空 `pattern`。
+   - helper 文案明确“任意消息触发开启时，此文本不会参与匹配”。
+
+#### 当前测试建议
+
+1. 如果要测试“只有嗯3触发”，不要勾选“任意消息触发”，应使用普通正则模式，并确保解析出来的内容确实是 `嗯3` 而不是 `额3`。
+2. 如果要测试“这个人任意消息触发”，才勾选“任意消息触发”，并用群成员搜索选择真实发送者。
+3. 如果页面显示 `监听状态原因: budget_exhausted`，需要重新 Arm 或提高最大触发次数，否则不会继续发送。

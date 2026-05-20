@@ -62,6 +62,10 @@ class StatusPanel extends StatelessWidget {
             const SizedBox(height: 8),
             Text('监听状态原因: ${snapshot.armReason}'),
           ],
+          if (snapshot.lastTriggerStatus.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('最近触发状态: ${snapshot.lastTriggerStatus}'),
+          ],
           if (snapshot.lastError.isNotEmpty) ...[
             const SizedBox(height: 8),
             DecoratedBox(

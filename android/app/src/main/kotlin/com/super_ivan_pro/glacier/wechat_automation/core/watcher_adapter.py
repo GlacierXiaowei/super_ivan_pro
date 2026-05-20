@@ -118,7 +118,9 @@ class WechatDecryptHistoryWatcher:
 
     def _normalize_payload(self, payload: dict) -> MessageEvent | None:
         timestamp = int(payload.get("timestamp", 0) or 0)
-        talker = str(payload.get("chat") or payload.get("username") or "")
+        username = str(payload.get("username") or "")
+        chat_name = str(payload.get("chat") or "")
+        talker = username or chat_name
         raw_type = payload.get("type")
         content = str(payload.get("content") or "")
         if not talker:
@@ -134,7 +136,7 @@ class WechatDecryptHistoryWatcher:
         }
         message_type = type_mapping.get(str(raw_type), MessageType.UNKNOWN)
         seq = self._dedupe_key(payload)
-        talker_name = self._display_talker_name(talker)
+        talker_name = self._display_talker_name(talker, chat_name)
 
         return MessageEvent(
             seq=seq,
@@ -150,10 +152,10 @@ class WechatDecryptHistoryWatcher:
         )
 
     @staticmethod
-    def _display_talker_name(talker: str) -> str:
+    def _display_talker_name(talker: str, chat_name: str = "") -> str:
         if talker == "filehelper":
             return "文件传输助手"
-        return talker
+        return chat_name or talker
 
     @staticmethod
     def _dedupe_key(payload: dict) -> str:

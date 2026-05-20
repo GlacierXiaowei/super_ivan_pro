@@ -8,6 +8,8 @@ void main() {
     final snapshot = DesktopSnapshot.seed().copyWith(
       armReason: 'budget_exhausted',
       lastError: 'RuntimeError: foreground_not_wechat',
+      lastTriggerStatus:
+          'rule_skip rule=desktop_rule seq=1 reason=pattern_mismatch',
     );
 
     await tester.pumpWidget(
@@ -29,6 +31,12 @@ void main() {
     expect(find.text('监听状态原因: budget_exhausted'), findsOneWidget);
     expect(
       find.text('最近发送错误: RuntimeError: foreground_not_wechat'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '最近触发状态: rule_skip rule=desktop_rule seq=1 reason=pattern_mismatch',
+      ),
       findsOneWidget,
     );
   });

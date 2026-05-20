@@ -50,6 +50,43 @@ class LiveFilehelperNormalizationTest(unittest.TestCase):
         result = match_rule(event, rule)
         self.assertTrue(result.matched)
 
+    def test_group_payload_uses_stable_chatroom_talker_and_display_name(self) -> None:
+        watcher = WechatDecryptHistoryWatcher(RuntimeConfig())
+        payload = {
+            "timestamp": 1779249772,
+            "chat": "测试群聊",
+            "username": "47561933285@chatroom",
+            "is_group": True,
+            "sender": "威士忌Wow",
+            "type": "表情",
+            "content": "嗯3",
+        }
+
+        event = watcher._normalize_payload(payload)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.talker, "47561933285@chatroom")
+        self.assertEqual(event.display_talker, "测试群聊")
+
+        rule = Rule.from_dict(
+            {
+                "id": "desktop_rule",
+                "enabled": True,
+                "talker": "47561933285@chatroom",
+                "sender": "",
+                "chat_scope": "group",
+                "type": "text",
+                "match_mode": "regex",
+                "pattern": "嗯3",
+                "cooldown_ms": 0,
+                "replies": ["Slytherin"],
+            }
+        )
+
+        result = match_rule(event, rule)
+        self.assertTrue(result.matched)
+
 
 if __name__ == "__main__":
     unittest.main()

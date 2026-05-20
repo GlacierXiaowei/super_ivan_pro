@@ -103,7 +103,7 @@ class _RulePanelState extends State<RulePanel> {
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               labelText: '触发文本',
-              helperText: '普通模式会匹配文本，也会匹配表情包解析出的中文描述',
+              helperText: '任意消息触发开启时，此文本不会参与匹配',
             ),
           ),
           const SizedBox(height: 12),
@@ -188,7 +188,9 @@ class _RulePanelState extends State<RulePanel> {
               onPressed: widget.isBusy
                   ? null
                   : () => widget.onSaveRule(
-                      pattern: _patternController.text.trim(),
+                      pattern: _isAnyTrigger
+                          ? ''
+                          : _patternController.text.trim(),
                       replies: _repliesController.text
                           .split('\n')
                           .map((line) => line.trim())

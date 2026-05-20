@@ -21,6 +21,8 @@ void main() {
               'watcher_state': 'unavailable',
               'watcher_error': 'watcher offline',
               'last_error': 'RuntimeError: foreground_not_wechat',
+              'last_trigger_status':
+                  'rule_skip rule=desktop_rule seq=1 reason=pattern_mismatch',
               'armed': true,
               'arm_reason': 'armed',
               'mode': 'rapid',
@@ -71,6 +73,10 @@ void main() {
     expect(snapshot.watcherStateLabel, 'unavailable');
     expect(snapshot.watcherError, 'watcher offline');
     expect(snapshot.lastError, 'RuntimeError: foreground_not_wechat');
+    expect(
+      snapshot.lastTriggerStatus,
+      'rule_skip rule=desktop_rule seq=1 reason=pattern_mismatch',
+    );
     expect(snapshot.armReason, 'armed');
     expect(snapshot.mode, DesktopMode.rapid);
     expect(snapshot.activeTarget.displayName, '文件传输助手');

@@ -4,6 +4,49 @@ import 'package:super_ivan_pro/features/desktop_console/models/desktop_models.da
 import 'package:super_ivan_pro/features/desktop_console/presentation/widgets/rule_panel.dart';
 
 void main() {
+  testWidgets('arbitrary trigger mode saves an empty pattern', (tester) async {
+    String? savedPattern;
+    DesktopMatchMode? savedMatchMode;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RulePanel(
+            snapshot: DesktopSnapshot.seed().copyWith(
+              rule: const DesktopRule(
+                pattern: '嗯3',
+                replies: ['Slytherin'],
+                cooldownMs: 0,
+              ),
+            ),
+            isBusy: false,
+            onSaveRule:
+                ({
+                  required pattern,
+                  required replies,
+                  required cooldownMs,
+                  required maxTriggers,
+                  required matchMode,
+                  required replyDelayMs,
+                  required sender,
+                }) async {
+                  savedPattern = pattern;
+                  savedMatchMode = matchMode;
+                },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, '保存规则'));
+    await tester.pumpAndSettle();
+
+    expect(savedMatchMode, DesktopMatchMode.any);
+    expect(savedPattern, '');
+  });
+
   testWidgets(
     'keeps local arbitrary trigger toggle across equivalent refresh',
     (tester) async {

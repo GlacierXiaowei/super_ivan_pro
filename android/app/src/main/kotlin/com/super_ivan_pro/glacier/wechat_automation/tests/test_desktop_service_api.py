@@ -533,6 +533,35 @@ class DesktopServiceApiTest(unittest.TestCase):
             self.assertEqual(status_code, 200)
             self.assertIn("foreground_not_wechat", status["last_error"])
 
+    def test_status_reports_latest_trigger_skip_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo_root = tmp_path / "repo"
+            runtime_root = tmp_path / "desktop-runtime"
+            self._build_repo_fixture(repo_root)
+            app = create_app(
+                runtime_root=runtime_root,
+                repo_root=repo_root,
+                watcher_factory=DummyWatcher,
+                popen_factory=FakePopenFactory(),
+            )
+
+            logs_dir = runtime_root / "logs"
+            (logs_dir / "wechat_automation.log").write_text(
+                "2026-05-20 INFO event_received seq=1 talker=测试群聊 sender=威士忌Wow type=emoji content=额3\n"
+                "2026-05-20 INFO rule_skip rule=desktop_rule seq=1 reason=pattern_mismatch\n"
+                "2026-05-20 INFO event_skip seq=2 reason=not_armed state_reason=budget_exhausted\n",
+                encoding="utf-8",
+            )
+
+            status_code, status = app.handle_json("GET", "/status")
+
+            self.assertEqual(status_code, 200)
+            self.assertEqual(
+                status["last_trigger_status"],
+                "event_skip seq=2 reason=not_armed state_reason=budget_exhausted",
+            )
+
     def test_status_reports_watcher_unavailable_when_history_fetch_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
